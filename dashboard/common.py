@@ -11,10 +11,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.data_preprocessing import TARGET_COL, prepare_modeling_table
-from src.train_logistic import run as train_logistic_run
-from src.train_xgboost import run as train_xgboost_run
-from src.utils import MODELS_DIR, load_dataset_auto, load_model
+from src.data_preprocessing import TARGET_COL, prepare_modeling_table  # noqa: E402
+from src.train_logistic import run as train_logistic_run  # noqa: E402
+from src.train_xgboost import run as train_xgboost_run  # noqa: E402
+from src.utils import MODELS_DIR, load_dataset_auto, load_model  # noqa: E402
 
 
 def load_data_for_dashboard() -> pd.DataFrame:
