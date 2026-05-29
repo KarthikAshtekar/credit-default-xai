@@ -3,10 +3,10 @@
 src/* @KarthikAshtekar
 dashboard/* @KarthikAshtekar
 # Require specific users to review changes to Python files
-*.py @KarthikAshtekar @collaborator-username
+*.py @KarthikAshtekar 
 
 # Require a specific team to review the whole src/ directory
-/src/ @org-name/team-name
+/src/ 
 
 # Fallback: Require someone to review everything not specified above
 * @KarthikAshtekar
