@@ -3,7 +3,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import streamlit as st
-
 from common import ensure_model, get_feature_table
 
 

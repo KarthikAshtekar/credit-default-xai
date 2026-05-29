@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import streamlit as st
-
 from common import ensure_model
+
 from src.shap_explainer import generate_shap_artifacts
 
 

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import streamlit as st
-
+from counterfactual_dashboard import render_counterfactual_page
+from fairness_dashboard import render_fairness_page
 from prediction import render_prediction_page
 from shap_dashboard import render_shap_page
-from fairness_dashboard import render_fairness_page
-from counterfactual_dashboard import render_counterfactual_page
 
 st.set_page_config(
     page_title="Credit Default XAI & Fairness",

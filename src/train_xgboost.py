@@ -9,7 +9,14 @@ from xgboost import XGBClassifier
 
 from .data_preprocessing import TARGET_COL, build_preprocessor, train_test_data
 from .evaluate_models import evaluate_classification, plot_confusion_matrix
-from .utils import MODELS_DIR, REPORTS_DIR, ensure_directories, load_dataset_auto, save_json, save_model
+from .utils import (
+    MODELS_DIR,
+    REPORTS_DIR,
+    ensure_directories,
+    load_dataset_auto,
+    save_json,
+    save_model,
+)
 
 
 def train_xgboost_pipeline(X_train, y_train) -> Pipeline:

@@ -14,7 +14,14 @@ from sklearn.model_selection import train_test_split
 from .data_preprocessing import TARGET_COL, prepare_modeling_table
 from .evaluate_models import evaluate_classification
 from .fairness_metrics import compute_fairness_metrics
-from .utils import MODELS_DIR, REPORTS_DIR, infer_protected_attribute, load_dataset_auto, load_model, save_json
+from .utils import (
+    MODELS_DIR,
+    REPORTS_DIR,
+    infer_protected_attribute,
+    load_dataset_auto,
+    load_model,
+    save_json,
+)
 
 
 def _manual_reweighing_weights(y: pd.Series, sensitive: pd.Series) -> np.ndarray:

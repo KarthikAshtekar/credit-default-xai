@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 from lime.lime_tabular import LimeTabularExplainer
 
 from .data_preprocessing import TARGET_COL, train_test_data

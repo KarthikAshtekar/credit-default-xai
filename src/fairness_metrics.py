@@ -10,7 +10,6 @@ import pandas as pd
 from fairlearn.metrics import (
     demographic_parity_difference,
     equalized_odds_difference,
-    false_positive_rate,
     true_positive_rate,
 )
 

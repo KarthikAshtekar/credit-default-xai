@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import streamlit as st
-
 from common import ensure_model, get_feature_table
+
 from src.counterfactuals import generate_counterfactual
 
 
