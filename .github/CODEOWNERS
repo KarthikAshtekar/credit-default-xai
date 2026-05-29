@@ -1,4 +1,4 @@
 # Default owners for repository reviews
-* @your-github-org-or-username/data-science-leads
-src/* @your-github-org-or-username/ml-engineers
-dashboard/* @your-github-org-or-username/app-engineers
+* @KarthikAshtekar
+src/* @KarthikAshtekar
+dashboard/* @KarthikAshtekar
