@@ -7,6 +7,8 @@ repos:
       - id: trailing-whitespace
       - id: check-merge-conflict
       - id: check-added-large-files
+        args: ["--maxkb=5000"]
+        exclude: ^data/raw/
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.0
     hooks:
