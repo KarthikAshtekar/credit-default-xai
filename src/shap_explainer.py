@@ -34,7 +34,9 @@ def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
     Xt = _transform_X(model_pipeline, X_sample)
 
     feature_names = _transformed_feature_names(model_pipeline, X_sample)
-    feature_frame = pd.DataFrame(Xt.toarray() if hasattr(Xt, "toarray") else Xt, columns=feature_names)
+    feature_frame = pd.DataFrame(
+        Xt.toarray() if hasattr(Xt, "toarray") else Xt, columns=feature_names
+    )
 
     estimator = model_pipeline.named_steps["classifier"]
 
@@ -43,7 +45,11 @@ def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
         raw_shap = explainer.shap_values(feature_frame)
         if isinstance(raw_shap, list):
             shap_values = raw_shap[-1]
-            base_value = explainer.expected_value[-1] if isinstance(explainer.expected_value, list) else explainer.expected_value
+            base_value = (
+                explainer.expected_value[-1]
+                if isinstance(explainer.expected_value, list)
+                else explainer.expected_value
+            )
         else:
             shap_values = raw_shap
             base_value = explainer.expected_value
@@ -53,7 +59,11 @@ def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
         shap_values = explanation.values
         if shap_values.ndim == 3:
             shap_values = shap_values[:, :, -1]
-        base_value = explanation.base_values[0] if hasattr(explanation, "base_values") else float(np.mean(shap_values))
+        base_value = (
+            explanation.base_values[0]
+            if hasattr(explanation, "base_values")
+            else float(np.mean(shap_values))
+        )
 
     # Global summary
     summary_path = REPORTS_DIR / "figures" / f"{model_path.stem}_shap_summary.png"

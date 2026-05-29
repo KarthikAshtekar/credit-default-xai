@@ -40,9 +40,7 @@ def detect_dataset_file(data_dir: Optional[Path] = None) -> Path:
 
     candidates = csv_files + excel_files
     if not candidates:
-        raise FileNotFoundError(
-            f"No CSV/XLSX/XLS files found in raw data directory: {data_dir}"
-        )
+        raise FileNotFoundError(f"No CSV/XLSX/XLS files found in raw data directory: {data_dir}")
     return candidates[0]
 
 

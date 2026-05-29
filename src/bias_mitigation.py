@@ -35,7 +35,7 @@ def _manual_reweighing_weights(y: pd.Series, sensitive: pd.Series) -> np.ndarray
 
     weights = np.ones(n)
     for idx, row in df.iterrows():
-        sy = p_sy.loc[(row["s"], row["y"]) ]
+        sy = p_sy.loc[(row["s"], row["y"])]
         weights[idx] = (p_s.loc[row["s"]] * p_y.loc[row["y"]]) / sy if sy > 0 else 1.0
     return weights
 
@@ -102,7 +102,9 @@ def apply_threshold_optimizer(model, X_train, y_train, sensitive_train):
 
 def run(model_path: Path | None = None) -> Dict:
     model_path = model_path or (
-        MODELS_DIR / "xgboost_model.pkl" if (MODELS_DIR / "xgboost_model.pkl").exists() else MODELS_DIR / "logistic_model.pkl"
+        MODELS_DIR / "xgboost_model.pkl"
+        if (MODELS_DIR / "xgboost_model.pkl").exists()
+        else MODELS_DIR / "logistic_model.pkl"
     )
 
     df_raw, _ = load_dataset_auto()
@@ -156,7 +158,10 @@ def run(model_path: Path | None = None) -> Dict:
         "fairlearn_postprocessing": {"performance": perf_post, "fairness": fair_post},
     }
 
-    save_json(summary, REPORTS_DIR / "fairness_reports" / f"{model_path.stem}_bias_mitigation_summary.json")
+    save_json(
+        summary,
+        REPORTS_DIR / "fairness_reports" / f"{model_path.stem}_bias_mitigation_summary.json",
+    )
 
     rows = []
     for method, block in summary.items():

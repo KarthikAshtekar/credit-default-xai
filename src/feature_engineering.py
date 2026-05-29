@@ -29,15 +29,14 @@ def add_behavioral_flags(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
 
     if "SalaryDropFlag" in out.columns and "SpendingSpikeFlag" in out.columns:
-        out["StressSignalCount"] = (
-            out["SalaryDropFlag"].astype(float) + out["SpendingSpikeFlag"].astype(float)
-        )
+        out["StressSignalCount"] = out["SalaryDropFlag"].astype(float) + out[
+            "SpendingSpikeFlag"
+        ].astype(float)
 
     if "PastDefaults" in out.columns and "MissedEMIs_Last6M" in out.columns:
-        out["HistoricalRiskScore"] = (
-            2 * out["PastDefaults"].astype(float)
-            + out["MissedEMIs_Last6M"].astype(float)
-        )
+        out["HistoricalRiskScore"] = 2 * out["PastDefaults"].astype(float) + out[
+            "MissedEMIs_Last6M"
+        ].astype(float)
 
     return out
 

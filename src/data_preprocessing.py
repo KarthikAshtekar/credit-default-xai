@@ -92,6 +92,4 @@ def train_test_data(
     prepared = prepare_modeling_table(df, target_col=target_col)
     X, y = split_features_target(prepared, target_col=target_col)
 
-    return train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
-    )
+    return train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)

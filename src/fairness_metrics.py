@@ -25,9 +25,11 @@ from .utils import (
 
 
 def _disparate_impact_ratio(y_pred: np.ndarray, sensitive: pd.Series) -> float:
-    rates = pd.DataFrame({"y_pred": y_pred, "sensitive": sensitive}).groupby("sensitive")[
-        "y_pred"
-    ].mean()
+    rates = (
+        pd.DataFrame({"y_pred": y_pred, "sensitive": sensitive})
+        .groupby("sensitive")["y_pred"]
+        .mean()
+    )
     if len(rates) < 2:
         return 1.0
     min_rate = rates.min()
@@ -66,7 +68,9 @@ def compute_fairness_metrics(y_true, y_pred, sensitive) -> Dict[str, float]:
 
 def run(model_path: Path | None = None) -> Dict:
     model_path = model_path or (
-        MODELS_DIR / "xgboost_model.pkl" if (MODELS_DIR / "xgboost_model.pkl").exists() else MODELS_DIR / "logistic_model.pkl"
+        MODELS_DIR / "xgboost_model.pkl"
+        if (MODELS_DIR / "xgboost_model.pkl").exists()
+        else MODELS_DIR / "logistic_model.pkl"
     )
 
     df_raw, _ = load_dataset_auto()
