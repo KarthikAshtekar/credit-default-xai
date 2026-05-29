@@ -1,0 +1,24 @@
+name: "Feature request"
+description: Suggest an enhancement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user/team problem are we solving?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: ethics
+    attributes:
+      label: Fairness / ethics impact
+      description: Any expected impact on fairness, explainability, or governance?
+    validations:
+      required: false

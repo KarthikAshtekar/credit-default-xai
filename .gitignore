@@ -1,0 +1,22 @@
+# Use local path separators for Windows-friendly setup
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Model and report artifacts
+models/*.pkl
+reports/figures/*.png
+reports/figures/*.html
+reports/explainability_reports/*.json
+reports/fairness_reports/*.json
+reports/fairness_reports/*.csv
+
+# Exceptions to keep folder structure
+!models/.gitkeep
+!reports/figures/.gitkeep
+!reports/fairness_reports/.gitkeep
+!reports/explainability_reports/.gitkeep
+!data/processed/.gitkeep
