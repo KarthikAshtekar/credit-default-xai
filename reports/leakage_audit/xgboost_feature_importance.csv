@@ -1,0 +1,50 @@
+feature,importance
+num__BureauScore,0.16873029
+num__MissedPayments_Last12M,0.14891797
+num__LoanToAnnualIncome,0.13467708
+num__MissedEMIs_Last6M,0.13237423
+num__StressSignalCount,0.12455982
+num__SpendingSpikeFlag,0.050297525
+num__SalaryDropFlag,0.042095955
+num__MissedPaymentRate,0.03598233
+num__EMIToIncome,0.02249777
+num__PastDefaults,0.017709246
+num__AnnualIncome_AED,0.013757217
+num__HistoricalRiskScore,0.012123796
+num__OnTimePayments_Last12M,0.010313186
+num__Unemployment_pct,0.007147461
+cat__LoanType_Credit Card,0.0068677403
+num__EMI_AED,0.0066896672
+cat__LoanType_Auto Loan,0.006115117
+num__Inflation_pct,0.0060729305
+num__LoanAmount_AED,0.006003058
+cat__EmploymentStatus_Self-Employed,0.0058373823
+num__InterestRate_pct,0.0054188925
+num__LoanTenureMonths,0.00414016
+num__OtherObligations_AED,0.0038584399
+num__Age,0.0036937085
+cat__Nationality_India,0.0036748038
+cat__Nationality_Egypt,0.0035572255
+cat__Nationality_Pakistan,0.0027283411
+num__ObligationsToIncome,0.0026467217
+num__LoanStartYear,0.002524951
+cat__City_RAK,0.0023459282
+num__StdMonthlyDebit_AED,0.0015661189
+num__LoanStartMonth,0.0014073002
+cat__EmploymentStatus_Unemployed,0.0013955552
+num__AvgMonthlyDebit_AED,0.0013575475
+cat__City_Fujairah,0.00091303885
+cat__Gender_Female,1.5321963e-06
+num__LoanStartQuarter,0.0
+cat__Nationality_Philippines,0.0
+cat__Gender_Male,0.0
+cat__Nationality_UAE,0.0
+cat__Nationality_UK,0.0
+cat__City_Sharjah,0.0
+cat__City_Dubai,0.0
+cat__City_Abu Dhabi,0.0
+cat__City_Ajman,0.0
+cat__EmploymentStatus_Salaried,0.0
+cat__LoanType_Business Loan,0.0
+cat__LoanType_Home Loan,0.0
+cat__LoanType_Personal Loan,0.0

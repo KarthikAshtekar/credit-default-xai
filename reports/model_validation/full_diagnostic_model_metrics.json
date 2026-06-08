@@ -1,0 +1,60 @@
+{
+  "feature_set": "full_diagnostic",
+  "split_strategy": "random",
+  "models": {
+    "xgboost_full_diagnostic": {
+      "model_name": "xgboost_full_diagnostic",
+      "feature_set": "full_diagnostic",
+      "split_strategy": "random",
+      "metrics": {
+        "accuracy": 0.9995,
+        "precision": 0.9988962472406181,
+        "recall": 1.0,
+        "f1": 0.9994478188845941,
+        "roc_auc": 1.0
+      },
+      "train_rows": 8000,
+      "test_rows": 2000,
+      "feature_count": 32,
+      "feature_columns": [
+        "Age",
+        "Gender",
+        "Nationality",
+        "City",
+        "EmploymentStatus",
+        "AnnualIncome_AED",
+        "OtherObligations_AED",
+        "BureauScore",
+        "LoanType",
+        "LoanAmount_AED",
+        "LoanTenureMonths",
+        "InterestRate_pct",
+        "OnTimePayments_Last12M",
+        "MissedPayments_Last12M",
+        "MissedEMIs_Last6M",
+        "PastDefaults",
+        "AvgMonthlyDebit_AED",
+        "StdMonthlyDebit_AED",
+        "SalaryDropFlag",
+        "SpendingSpikeFlag",
+        "Unemployment_pct",
+        "Inflation_pct",
+        "EMI_AED",
+        "LoanToAnnualIncome",
+        "LoanStartYear",
+        "LoanStartMonth",
+        "LoanStartQuarter",
+        "ObligationsToIncome",
+        "EMIToIncome",
+        "MissedPaymentRate",
+        "StressSignalCount",
+        "HistoricalRiskScore"
+      ],
+      "model_path": null
+    }
+  },
+  "notes": [
+    "Full diagnostic results are not the final credit-origination headline model.",
+    "This feature set includes post-outcome behavioral features and is diagnostic only."
+  ]
+}

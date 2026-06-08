@@ -1,0 +1,5 @@
+{
+  "feature_set": "full_diagnostic",
+  "roc_auc": 0.526231236913141,
+  "accuracy": 0.538
+}

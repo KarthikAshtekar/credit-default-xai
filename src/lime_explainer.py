@@ -7,21 +7,39 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from lime.lime_tabular import LimeTabularExplainer
 
-from .data_preprocessing import TARGET_COL, train_test_data
+from .data_preprocessing import (
+    FEATURE_SET_APPLICATION,
+    FEATURE_SET_BEHAVIORAL,
+    FEATURE_SET_FULL_DIAGNOSTIC,
+    TARGET_COL,
+    get_dataset_split,
+)
 from .utils import MODELS_DIR, REPORTS_DIR, ensure_directories, load_dataset_auto, load_model
+
+
+def _model_context(model_path: Path) -> tuple[str, Path]:
+    stem = model_path.stem
+    if "behavioral" in stem:
+        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "explainability_reports" / "behavioral_model"
+    if "full_diagnostic" in stem:
+        return FEATURE_SET_FULL_DIAGNOSTIC, REPORTS_DIR / "explainability_reports" / "full_diagnostic"
+    return FEATURE_SET_APPLICATION, REPORTS_DIR / "explainability_reports" / "application_model"
 
 
 def generate_lime_explanation(model_path: Path, instance_index: int = 0) -> dict:
     ensure_directories()
 
     df, _ = load_dataset_auto()
-    X_train, X_test, y_train, _ = train_test_data(df, target_col=TARGET_COL)
+    feature_set, report_dir = _model_context(model_path)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    split = get_dataset_split(df, target_col=TARGET_COL, feature_set=feature_set)
+    X_train, X_test = split.X_train, split.X_test
 
     model_pipeline = load_model(model_path)
     preprocessor = model_pipeline.named_steps["preprocessor"]
     estimator = model_pipeline.named_steps["classifier"]
 
-    Xt_train = preprocessor.fit_transform(X_train)
+    Xt_train = preprocessor.transform(X_train)
     Xt_test = preprocessor.transform(X_test)
 
     feature_names = preprocessor.get_feature_names_out()
@@ -43,7 +61,7 @@ def generate_lime_explanation(model_path: Path, instance_index: int = 0) -> dict
     )
 
     fig = exp.as_pyplot_figure()
-    out_path = REPORTS_DIR / "figures" / f"{model_path.stem}_lime_local.png"
+    out_path = report_dir / f"{model_path.stem}_lime_local.png"
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
@@ -56,11 +74,14 @@ def generate_lime_explanation(model_path: Path, instance_index: int = 0) -> dict
 
 
 def run() -> dict:
-    xgb_path = MODELS_DIR / "xgboost_model.pkl"
-    log_path = MODELS_DIR / "logistic_model.pkl"
+    xgb_path = MODELS_DIR / "xgboost_application.pkl"
+    log_path = MODELS_DIR / "logistic_application.pkl"
+    behavioral_path = MODELS_DIR / "xgboost_behavioral.pkl"
 
     if xgb_path.exists():
         return generate_lime_explanation(xgb_path)
+    if behavioral_path.exists():
+        return generate_lime_explanation(behavioral_path)
     if log_path.exists():
         return generate_lime_explanation(log_path)
 

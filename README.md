@@ -58,10 +58,15 @@ credit-default-xai/
 ├── reports/
 │   ├── figures/
 │   ├── fairness_reports/
-│   └── explainability_reports/
+│   ├── explainability_reports/
+│   ├── leakage_audit/
+│   └── model_validation/
 └── models/
-    ├── logistic_model.pkl
-    └── xgboost_model.pkl
+    ├── logistic_application.pkl
+    ├── logistic_behavioral.pkl
+    ├── xgboost_application.pkl
+    ├── xgboost_behavioral.pkl
+    └── xgboost_full_diagnostic.pkl
 ```
 
 ## Dataset
@@ -139,12 +144,54 @@ python -m src.train_xgboost
 ```
 3. Evaluate and generate explainability artifacts:
 ```bash
+python -m src.leakage_audit
 python -m src.evaluate_models
 python -m src.shap_explainer
 python -m src.lime_explainer
 python -m src.fairness_metrics
 python -m src.bias_mitigation
 ```
+
+## Leakage and Validation Audit
+Perfect XGBoost performance in the original full-feature pipeline was treated as suspicious rather than celebrated. The repository now includes a leakage and validation audit under `reports/leakage_audit/` and clean model validation outputs under `reports/model_validation/`.
+
+What was checked:
+- Whether `Default_Flag` or ID columns leaked into features
+- Whether preprocessing was fitted before the split
+- Whether train/test rows or IDs overlapped
+- Whether any single feature had unusually high standalone predictive power
+- Whether performance survived a shuffled-target sanity check
+- Whether temporal validation materially changed results
+
+Key findings from the current dataset:
+- No direct leakage was found from `Default_Flag`, `CustomerID`, or `LoanID`
+- The previous pipeline did include a hindsight-style `LoanAgeDays` feature derived from the dataset max date; this has been removed from the default modeling path
+- The dominant issue is feature timing, not split contamination: repayment and account-behavior fields such as `MissedPayments_Last12M`, `MissedEMIs_Last6M`, `SalaryDropFlag`, `SpendingSpikeFlag`, `StressSignalCount`, and related derived features produce near-perfect behavioral/default monitoring performance
+- The shuffled-target test dropped to ROC-AUC `0.526`, which argues against pipeline-level train/test leakage
+
+Feature-set definitions:
+- `application` is the clean credit-origination feature set and excludes repayment-history/account-behavior fields
+- `behavioral` includes repayment-history and account-behavior fields and should be described as default monitoring after some loan history exists
+- `full_diagnostic` is retained only as a diagnostic baseline and should not be used as the headline credit-scoring result
+
+PastDefaults assumption:
+- `PastDefaults` is excluded from the application-time model because the dataset does not explicitly state whether it refers only to defaults before the current loan
+
+Current model position:
+- Final CV/project model: `xgboost_application.pkl`
+- Secondary benchmark: `logistic_application.pkl`
+- Monitoring-only models: `logistic_behavioral.pkl` and `xgboost_behavioral.pkl`
+- Diagnostic-only model: `xgboost_full_diagnostic.pkl`
+
+Current validation summary:
+- `xgboost_application.pkl`: accuracy `0.7105`, ROC-AUC `0.7825`
+- `logistic_application.pkl`: accuracy `0.6925`, ROC-AUC `0.7639`
+- `xgboost_behavioral.pkl`: accuracy `1.0000`, ROC-AUC `1.0000`
+- `xgboost_full_diagnostic.pkl`: accuracy `0.9995`, ROC-AUC `1.0000`
+
+Interpretation:
+- The application-time models are the credible credit-scoring results for this project
+- The behavioral and full diagnostic XGBoost results are too strong to present as production-style origination scoring; they are best interpreted as post-origination monitoring or easy diagnostic benchmarks driven by post-loan behavior
 
 ## Team Guardrails
 This repository includes collaboration guardrails to support team forking and scaling:

@@ -9,9 +9,14 @@ import numpy as np
 import pandas as pd
 from fairlearn.postprocessing import ThresholdOptimizer
 from sklearn.base import clone
-from sklearn.model_selection import train_test_split
 
-from .data_preprocessing import TARGET_COL, prepare_modeling_table
+from .data_preprocessing import (
+    FEATURE_SET_APPLICATION,
+    FEATURE_SET_BEHAVIORAL,
+    FEATURE_SET_FULL_DIAGNOSTIC,
+    TARGET_COL,
+    get_dataset_split,
+)
 from .evaluate_models import evaluate_classification
 from .fairness_metrics import compute_fairness_metrics
 from .utils import (
@@ -100,33 +105,37 @@ def apply_threshold_optimizer(model, X_train, y_train, sensitive_train):
     return threshold_opt
 
 
+def _model_context(model_path: Path) -> tuple[str, Path]:
+    stem = model_path.stem
+    if "behavioral" in stem:
+        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "fairness_reports" / "behavioral_model"
+    if "full_diagnostic" in stem:
+        return FEATURE_SET_FULL_DIAGNOSTIC, REPORTS_DIR / "fairness_reports" / "full_diagnostic"
+    return FEATURE_SET_APPLICATION, REPORTS_DIR / "fairness_reports" / "application_model"
+
+
+def _approval_fairness(y_true_default, y_pred_default, sensitive) -> Dict[str, float]:
+    approval_true = 1 - np.asarray(y_true_default).astype(int)
+    approval_pred = 1 - np.asarray(y_pred_default).astype(int)
+    return compute_fairness_metrics(approval_true, approval_pred, sensitive)
+
+
 def run(model_path: Path | None = None) -> Dict:
     model_path = model_path or (
-        MODELS_DIR / "xgboost_model.pkl"
-        if (MODELS_DIR / "xgboost_model.pkl").exists()
-        else MODELS_DIR / "logistic_model.pkl"
+        MODELS_DIR / "xgboost_application.pkl"
+        if (MODELS_DIR / "xgboost_application.pkl").exists()
+        else MODELS_DIR / "logistic_application.pkl"
     )
+    feature_set, report_dir = _model_context(model_path)
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     df_raw, _ = load_dataset_auto()
     protected_col = infer_protected_attribute(df_raw)
-
-    prepared = prepare_modeling_table(df_raw, target_col=TARGET_COL)
-    X = prepared.drop(columns=[TARGET_COL])
-    y = prepared[TARGET_COL]
-
-    if protected_col in X.columns:
-        sensitive = X[protected_col].astype(str)
-    else:
-        sensitive = df_raw[protected_col].astype(str)
-
-    X_train, X_test, y_train, y_test, s_train, s_test = train_test_split(
-        X,
-        y,
-        sensitive,
-        test_size=0.2,
-        random_state=42,
-        stratify=y,
-    )
+    split = get_dataset_split(df_raw, target_col=TARGET_COL, feature_set=feature_set)
+    X_train, X_test = split.X_train, split.X_test
+    y_train, y_test = split.y_train, split.y_test
+    s_train = df_raw.loc[split.train_indices, protected_col].astype(str)
+    s_test = df_raw.loc[split.test_indices, protected_col].astype(str)
 
     base_model = load_model(model_path)
 
@@ -134,21 +143,21 @@ def run(model_path: Path | None = None) -> Dict:
     y_pred_base = base_model.predict(X_test)
     y_proba_base = base_model.predict_proba(X_test)[:, 1]
     perf_base = evaluate_classification(y_test, y_pred_base, y_proba_base)
-    fair_base = compute_fairness_metrics(y_test.values, y_pred_base, s_test.values)
+    fair_base = _approval_fairness(y_test.values, y_pred_base, s_test.values)
 
     # Reweighing
     rw_model = apply_reweighing(base_model, X_train, y_train, s_train)
     y_pred_rw = rw_model.predict(X_test)
     y_proba_rw = rw_model.predict_proba(X_test)[:, 1]
     perf_rw = evaluate_classification(y_test, y_pred_rw, y_proba_rw)
-    fair_rw = compute_fairness_metrics(y_test.values, y_pred_rw, s_test.values)
+    fair_rw = _approval_fairness(y_test.values, y_pred_rw, s_test.values)
 
     # Post-processing with Fairlearn
     postproc = apply_threshold_optimizer(base_model, X_train, y_train, s_train)
     y_pred_post = postproc.predict(X_test, sensitive_features=s_test)
     y_proba_post = y_pred_post.astype(float)
     perf_post = evaluate_classification(y_test, y_pred_post, y_proba_post)
-    fair_post = compute_fairness_metrics(y_test.values, y_pred_post, s_test.values)
+    fair_post = _approval_fairness(y_test.values, y_pred_post, s_test.values)
 
     summary = {
         "model": str(model_path),
@@ -160,7 +169,7 @@ def run(model_path: Path | None = None) -> Dict:
 
     save_json(
         summary,
-        REPORTS_DIR / "fairness_reports" / f"{model_path.stem}_bias_mitigation_summary.json",
+        report_dir / f"{model_path.stem}_bias_mitigation_summary.json",
     )
 
     rows = []
@@ -173,7 +182,7 @@ def run(model_path: Path | None = None) -> Dict:
         rows.append(row)
 
     pd.DataFrame(rows).to_csv(
-        REPORTS_DIR / "fairness_reports" / f"{model_path.stem}_fairness_accuracy_tradeoff.csv",
+        report_dir / f"{model_path.stem}_fairness_accuracy_tradeoff.csv",
         index=False,
     )
 

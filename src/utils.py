@@ -24,7 +24,13 @@ def ensure_directories() -> None:
         MODELS_DIR,
         REPORTS_DIR / "figures",
         REPORTS_DIR / "fairness_reports",
+        REPORTS_DIR / "fairness_reports" / "application_model",
+        REPORTS_DIR / "fairness_reports" / "behavioral_model",
         REPORTS_DIR / "explainability_reports",
+        REPORTS_DIR / "explainability_reports" / "application_model",
+        REPORTS_DIR / "explainability_reports" / "behavioral_model",
+        REPORTS_DIR / "leakage_audit",
+        REPORTS_DIR / "model_validation",
     ]:
         path.mkdir(parents=True, exist_ok=True)
 

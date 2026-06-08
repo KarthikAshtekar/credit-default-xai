@@ -1,74 +1,68 @@
-"""Train and persist XGBoost classifier."""
+"""Train and persist XGBoost application, behavioral, and diagnostic models."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from sklearn.pipeline import Pipeline
-from xgboost import XGBClassifier
-
-from .data_preprocessing import TARGET_COL, build_preprocessor, train_test_data
-from .evaluate_models import evaluate_classification, plot_confusion_matrix
-from .utils import (
-    MODELS_DIR,
-    REPORTS_DIR,
-    ensure_directories,
-    load_dataset_auto,
-    save_json,
-    save_model,
+from .data_preprocessing import (
+    FEATURE_SET_APPLICATION,
+    FEATURE_SET_BEHAVIORAL,
+    FEATURE_SET_FULL_DIAGNOSTIC,
 )
-
-
-def train_xgboost_pipeline(X_train, y_train) -> Pipeline:
-    preprocessor = build_preprocessor(X_train)
-    model = XGBClassifier(
-        n_estimators=300,
-        max_depth=5,
-        learning_rate=0.05,
-        subsample=0.9,
-        colsample_bytree=0.9,
-        objective="binary:logistic",
-        eval_metric="logloss",
-        random_state=42,
-        n_jobs=-1,
-    )
-
-    pipeline = Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            ("classifier", model),
-        ]
-    )
-    pipeline.fit(X_train, y_train)
-    return pipeline
+from .evaluate_models import run_model_experiment
+from .model_builders import build_xgboost_estimator
+from .utils import MODELS_DIR, REPORTS_DIR, ensure_directories, load_dataset_auto, save_json
 
 
 def run(output_path: Path | None = None) -> dict:
     ensure_directories()
     df, data_path = load_dataset_auto()
-    X_train, X_test, y_train, y_test = train_test_data(df, target_col=TARGET_COL)
 
-    pipeline = train_xgboost_pipeline(X_train, y_train)
-
-    y_pred = pipeline.predict(X_test)
-    y_proba = pipeline.predict_proba(X_test)[:, 1]
-
-    metrics = evaluate_classification(y_test, y_pred, y_proba)
-    plot_confusion_matrix(y_test, y_pred, "xgboost")
-
-    model_path = output_path or (MODELS_DIR / "xgboost_model.pkl")
-    save_model(pipeline, model_path)
+    application_path = output_path or (MODELS_DIR / "xgboost_application.pkl")
+    application = run_model_experiment(
+        df,
+        build_xgboost_estimator(),
+        "xgboost_application",
+        FEATURE_SET_APPLICATION,
+        model_output_path=application_path,
+    )
+    behavioral = run_model_experiment(
+        df,
+        build_xgboost_estimator(),
+        "xgboost_behavioral",
+        FEATURE_SET_BEHAVIORAL,
+        model_output_path=MODELS_DIR / "xgboost_behavioral.pkl",
+    )
+    full_diagnostic = run_model_experiment(
+        df,
+        build_xgboost_estimator(),
+        "xgboost_full_diagnostic",
+        FEATURE_SET_FULL_DIAGNOSTIC,
+        model_output_path=MODELS_DIR / "xgboost_full_diagnostic.pkl",
+    )
 
     payload = {
         "dataset": str(data_path),
-        "model_path": str(model_path),
-        "metrics": metrics,
+        "models": {
+            "xgboost_application": {
+                "model_path": str(application_path),
+                "metrics": application["metrics"],
+            },
+            "xgboost_behavioral": {
+                "model_path": str(MODELS_DIR / "xgboost_behavioral.pkl"),
+                "metrics": behavioral["metrics"],
+            },
+            "xgboost_full_diagnostic": {
+                "model_path": str(MODELS_DIR / "xgboost_full_diagnostic.pkl"),
+                "metrics": full_diagnostic["metrics"],
+            },
+        },
     }
-    save_json(payload, REPORTS_DIR / "fairness_reports" / "xgboost_metrics.json")
+    save_json(payload, REPORTS_DIR / "model_validation" / "xgboost_training_summary.json")
     return payload
 
 
 if __name__ == "__main__":
     result = run()
-    print("XGBoost model trained.")
+    print("XGBoost models trained.")
     print(result)

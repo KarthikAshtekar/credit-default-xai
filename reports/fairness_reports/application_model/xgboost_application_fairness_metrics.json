@@ -1,0 +1,13 @@
+{
+  "model": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\models\\xgboost_application.pkl",
+  "feature_set": "application",
+  "protected_attribute": "Gender",
+  "approval_threshold": 0.5,
+  "fairness_metrics": {
+    "demographic_parity_difference": 0.015096135865222793,
+    "equalized_odds_difference": 0.013806648296886909,
+    "equal_opportunity_difference": 0.0007576162123194008,
+    "disparate_impact_ratio": 0.9692871718604088
+  },
+  "test_rows": 2000
+}

@@ -1,4 +1,4 @@
-"""Fairness metric computation for binary classification."""
+"""Fairness metric computation for approval decisions on held-out data."""
 
 from __future__ import annotations
 
@@ -13,7 +13,13 @@ from fairlearn.metrics import (
     true_positive_rate,
 )
 
-from .data_preprocessing import TARGET_COL, prepare_modeling_table
+from .data_preprocessing import (
+    FEATURE_SET_APPLICATION,
+    FEATURE_SET_BEHAVIORAL,
+    FEATURE_SET_FULL_DIAGNOSTIC,
+    TARGET_COL,
+    get_dataset_split,
+)
 from .utils import (
     MODELS_DIR,
     REPORTS_DIR,
@@ -66,39 +72,48 @@ def compute_fairness_metrics(y_true, y_pred, sensitive) -> Dict[str, float]:
     return metrics
 
 
-def run(model_path: Path | None = None) -> Dict:
+def _model_context(model_path: Path) -> tuple[str, Path]:
+    stem = model_path.stem
+    if "behavioral" in stem:
+        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "fairness_reports" / "behavioral_model"
+    if "full_diagnostic" in stem:
+        return FEATURE_SET_FULL_DIAGNOSTIC, REPORTS_DIR / "fairness_reports" / "full_diagnostic"
+    return FEATURE_SET_APPLICATION, REPORTS_DIR / "fairness_reports" / "application_model"
+
+
+def run(model_path: Path | None = None, threshold: float = 0.50) -> Dict:
     model_path = model_path or (
-        MODELS_DIR / "xgboost_model.pkl"
-        if (MODELS_DIR / "xgboost_model.pkl").exists()
-        else MODELS_DIR / "logistic_model.pkl"
+        MODELS_DIR / "xgboost_application.pkl"
+        if (MODELS_DIR / "xgboost_application.pkl").exists()
+        else MODELS_DIR / "logistic_application.pkl"
     )
+
+    feature_set, report_dir = _model_context(model_path)
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     df_raw, _ = load_dataset_auto()
     protected_col = infer_protected_attribute(df_raw)
-    prepared = prepare_modeling_table(df_raw, target_col=TARGET_COL)
-
-    y = prepared[TARGET_COL]
-    X = prepared.drop(columns=[TARGET_COL])
-
-    if protected_col not in X.columns:
-        # fallback if transformed/dropped due preprocessing decisions
-        sensitive = df_raw[protected_col].astype(str)
-    else:
-        sensitive = X[protected_col].astype(str)
+    split = get_dataset_split(df_raw, target_col=TARGET_COL, feature_set=feature_set)
+    sensitive = df_raw.loc[split.test_indices, protected_col].astype(str)
 
     model = load_model(model_path)
-    y_pred = model.predict(X)
+    default_proba = model.predict_proba(split.X_test)[:, 1]
+    approval_pred = (default_proba < threshold).astype(int)
+    approval_true = (1 - split.y_test).astype(int)
 
-    fairness = compute_fairness_metrics(y.values, y_pred, sensitive.values)
+    fairness = compute_fairness_metrics(approval_true.values, approval_pred, sensitive.values)
 
     payload = {
         "model": str(model_path),
+        "feature_set": feature_set,
         "protected_attribute": protected_col,
+        "approval_threshold": threshold,
         "fairness_metrics": fairness,
+        "test_rows": int(len(split.X_test)),
     }
 
-    out_json = REPORTS_DIR / "fairness_reports" / f"{model_path.stem}_fairness_metrics.json"
-    out_csv = REPORTS_DIR / "fairness_reports" / f"{model_path.stem}_fairness_metrics.csv"
+    out_json = report_dir / f"{model_path.stem}_fairness_metrics.json"
+    out_csv = report_dir / f"{model_path.stem}_fairness_metrics.csv"
 
     save_json(payload, out_json)
     pd.DataFrame([fairness]).to_csv(out_csv, index=False)

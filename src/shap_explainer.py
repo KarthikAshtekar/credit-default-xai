@@ -1,4 +1,4 @@
-"""SHAP explainability utilities for global and local explanations."""
+"""SHAP explainability utilities for clean application and behavioral models."""
 
 from __future__ import annotations
 
@@ -9,7 +9,13 @@ import numpy as np
 import pandas as pd
 import shap
 
-from .data_preprocessing import TARGET_COL, train_test_data
+from .data_preprocessing import (
+    FEATURE_SET_APPLICATION,
+    FEATURE_SET_BEHAVIORAL,
+    FEATURE_SET_FULL_DIAGNOSTIC,
+    TARGET_COL,
+    get_dataset_split,
+)
 from .utils import MODELS_DIR, REPORTS_DIR, ensure_directories, load_dataset_auto, load_model
 
 
@@ -23,10 +29,22 @@ def _transform_X(pipeline, X: pd.DataFrame):
     return preprocessor.transform(X)
 
 
+def _model_context(model_path: Path) -> tuple[str, Path]:
+    stem = model_path.stem
+    if "behavioral" in stem:
+        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "explainability_reports" / "behavioral_model"
+    if "full_diagnostic" in stem:
+        return FEATURE_SET_FULL_DIAGNOSTIC, REPORTS_DIR / "explainability_reports" / "full_diagnostic"
+    return FEATURE_SET_APPLICATION, REPORTS_DIR / "explainability_reports" / "application_model"
+
+
 def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
     ensure_directories()
     df, _ = load_dataset_auto()
-    _, X_test, _, _ = train_test_data(df, target_col=TARGET_COL)
+    feature_set, report_dir = _model_context(model_path)
+    report_dir.mkdir(parents=True, exist_ok=True)
+    split = get_dataset_split(df, target_col=TARGET_COL, feature_set=feature_set)
+    X_test = split.X_test
 
     model_pipeline = load_model(model_path)
 
@@ -66,7 +84,7 @@ def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
         )
 
     # Global summary
-    summary_path = REPORTS_DIR / "figures" / f"{model_path.stem}_shap_summary.png"
+    summary_path = report_dir / f"{model_path.stem}_shap_summary.png"
     plt.figure(figsize=(10, 6))
     shap.summary_plot(shap_values, feature_frame, show=False)
     plt.tight_layout()
@@ -74,7 +92,7 @@ def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
     plt.close()
 
     # Local explanation for first sampled record
-    local_path = REPORTS_DIR / "figures" / f"{model_path.stem}_shap_local.png"
+    local_path = report_dir / f"{model_path.stem}_shap_local.png"
     plt.figure(figsize=(10, 6))
     shap.plots.waterfall(
         shap.Explanation(
@@ -98,11 +116,14 @@ def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
 
 
 def run() -> dict:
-    xgb_path = MODELS_DIR / "xgboost_model.pkl"
-    log_path = MODELS_DIR / "logistic_model.pkl"
+    xgb_path = MODELS_DIR / "xgboost_application.pkl"
+    log_path = MODELS_DIR / "logistic_application.pkl"
+    behavioral_path = MODELS_DIR / "xgboost_behavioral.pkl"
 
     if xgb_path.exists():
         return generate_shap_artifacts(xgb_path)
+    if behavioral_path.exists():
+        return generate_shap_artifacts(behavioral_path)
     if log_path.exists():
         return generate_shap_artifacts(log_path)
 
