@@ -33,17 +33,17 @@
   },
   "fairlearn_postprocessing": {
     "performance": {
-      "accuracy": 0.7005,
-      "precision": 0.6787383177570093,
-      "recall": 0.6419889502762431,
-      "f1": 0.6598523566155593,
-      "roc_auc": 0.6954236988824137
+      "accuracy": 0.701,
+      "precision": 0.6791131855309218,
+      "recall": 0.6430939226519337,
+      "f1": 0.6606129398410897,
+      "roc_auc": 0.695976185070259
     },
     "fairness": {
-      "demographic_parity_difference": 0.005432048888440066,
+      "demographic_parity_difference": 0.004429039861358786,
       "equalized_odds_difference": 0.020509037994286272,
       "equal_opportunity_difference": 0.020509037994286272,
-      "disparate_impact_ratio": 0.9905484245344245
+      "disparate_impact_ratio": 0.9922801525493449
     }
   }
 }

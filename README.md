@@ -20,6 +20,32 @@ The repository now uses three feature framings:
 - `behavioral`: application variables plus post-loan repayment or monitoring signals
 - `full_diagnostic`: the broader mixed feature set kept only for leakage diagnosis
 
+## Dataset Loading Options
+The project now supports three dataset loading modes through `src.data_api_loader`.
+
+1. Local case-study dataset
+
+```bash
+python -m src.data_api_loader --source local
+```
+
+2. UCI API dataset loading
+
+```bash
+python -m src.data_api_loader --source uci --dataset_name default_credit_card
+```
+
+3. Direct URL loading
+
+```bash
+python -m src.data_api_loader --source url --url "<direct_csv_or_excel_url>"
+```
+
+Notes:
+- The local case-study dataset remains the default project dataset
+- UCI datasets are intended for external validation or future comparison work
+- Direct URL loading is useful for reproducibility when public dataset links are available
+
 ## Methodology
 Pipeline:
 
@@ -119,6 +145,12 @@ The dashboard includes:
 - Fairness analysis
 - Counterfactual guidance
 - Leakage audit summary
+
+The dashboard prediction form:
+- asks only for application-time applicant details
+- computes EMI and loan-burden ratios internally
+- displays current applicant-level SHAP drivers after prediction
+- intentionally excludes post-loan behavioral features from the application model
 
 ## How To Run
 Install dependencies:

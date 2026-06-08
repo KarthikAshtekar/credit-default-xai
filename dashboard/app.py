@@ -16,11 +16,39 @@ if str(ROOT) not in sys.path:
 
 try:
     from .common import ensure_model, get_feature_table
+    from .prediction_helpers import (
+        EXCLUDED_USER_INPUT_FIELDS,
+        build_applicant_model_row,
+        build_defaults,
+        build_local_shap_figure,
+        compute_local_shap_analysis,
+        decision_support_recommendation,
+        generate_counterfactual_guidance,
+        generate_plain_english_explanation,
+        risk_band,
+    )
 except ImportError:
     from common import ensure_model, get_feature_table
+    from prediction_helpers import (
+        EXCLUDED_USER_INPUT_FIELDS,
+        build_applicant_model_row,
+        build_defaults,
+        build_local_shap_figure,
+        compute_local_shap_analysis,
+        decision_support_recommendation,
+        generate_counterfactual_guidance,
+        generate_plain_english_explanation,
+        risk_band,
+    )
 
 
 REPORTS_DIR = ROOT / "reports"
+DATASET_SOURCE_OPTIONS = [
+    "Local Case Dataset",
+    "UCI Default Credit Card",
+    "UCI South German Credit",
+    "Direct URL",
+]
 
 
 def load_json(path: Path) -> dict[str, Any] | None:
@@ -38,14 +66,6 @@ def load_csv(path: Path) -> pd.DataFrame | None:
 
 def show_warning_if_missing(label: str, path: Path) -> None:
     st.warning(f"{label} is missing: `{path}`")
-
-
-def risk_band(probability: float) -> str:
-    if probability < 0.30:
-        return "Low Risk"
-    if probability <= 0.60:
-        return "Medium Risk"
-    return "High Risk"
 
 
 def format_counterfactual_changes(counterfactual_payload: dict[str, Any]) -> pd.DataFrame:
@@ -73,6 +93,15 @@ st.caption(
     "Leakage-audited application-time credit default risk modeling with XGBoost, SHAP, "
     "LIME, counterfactual explanations, and fairness analysis."
 )
+
+selected_dataset_source = st.sidebar.selectbox("Dataset Source", DATASET_SOURCE_OPTIONS)
+if selected_dataset_source != "Local Case Dataset":
+    st.sidebar.info(
+        "Available for external validation / future extension. The main dashboard currently "
+        "uses the local case-study schema and the saved local application model."
+    )
+    if selected_dataset_source == "Direct URL":
+        st.sidebar.text_input("Direct dataset URL", value="", disabled=True)
 
 performance_path = REPORTS_DIR / "model_validation" / "clean_feature_model_comparison.csv"
 temporal_path = REPORTS_DIR / "model_validation" / "temporal_split_comparison.csv"
@@ -144,32 +173,197 @@ with tab_prediction:
     st.subheader("Applicant Risk Prediction")
     model, model_path = ensure_model("XGBoost")
     feature_table = get_feature_table()
-    st.write("Input simplified applicant details to score application-time default risk.")
-    numeric_cols = feature_table.select_dtypes(include=["number"]).columns.tolist()
-    categorical_cols = feature_table.select_dtypes(exclude=["number"]).columns.tolist()
+    defaults = build_defaults(feature_table)
+    st.write("Input applicant details to score default risk using only application-time features.")
+    st.caption(
+        "Post-loan behavioral fields such as missed payments, salary-drop flags, and spending "
+        "spike signals are intentionally excluded from this form."
+    )
+    applicant_col, loan_col = st.columns(2)
 
-    user_input: dict[str, Any] = {}
-    left, right = st.columns(2)
-    for idx, col in enumerate(numeric_cols):
-        default_val = float(feature_table[col].median())
-        target_col = left if idx % 2 == 0 else right
-        user_input[col] = target_col.number_input(col, value=default_val)
-    for idx, col in enumerate(categorical_cols):
-        options = sorted(feature_table[col].dropna().astype(str).unique().tolist()) or ["Unknown"]
-        target_col = left if idx % 2 == 0 else right
-        user_input[col] = target_col.selectbox(col, options=options)
-
-    input_df = pd.DataFrame([user_input])
-    if st.button("Predict Application Risk"):
-        probability = float(model.predict_proba(input_df)[:, 1][0])
-        band = risk_band(probability)
-        metric_a, metric_b, metric_c = st.columns(3)
-        metric_a.metric("Default Probability", f"{probability:.2%}")
-        metric_b.metric("Risk Category", band)
-        metric_c.metric("Model", model_path.name)
-        st.caption(
-            "Low Risk: p < 0.30 | Medium Risk: 0.30 <= p <= 0.60 | High Risk: p > 0.60"
+    with applicant_col:
+        st.markdown("**Applicant Details**")
+        age = st.number_input("Age", min_value=18, value=int(defaults["Age"]), step=1)
+        gender = st.selectbox(
+            "Gender",
+            options=sorted(feature_table["Gender"].dropna().astype(str).unique().tolist()),
         )
+        nationality = st.selectbox(
+            "Nationality",
+            options=sorted(feature_table["Nationality"].dropna().astype(str).unique().tolist()),
+        )
+        city = st.selectbox(
+            "City",
+            options=sorted(feature_table["City"].dropna().astype(str).unique().tolist()),
+        )
+        employment_status = st.selectbox(
+            "EmploymentStatus",
+            options=sorted(feature_table["EmploymentStatus"].dropna().astype(str).unique().tolist()),
+        )
+        annual_income = st.number_input(
+            "AnnualIncome_AED",
+            min_value=0.0,
+            value=float(defaults["AnnualIncome_AED"]),
+        )
+        other_obligations = st.number_input(
+            "OtherObligations_AED",
+            min_value=0.0,
+            value=float(defaults["OtherObligations_AED"]),
+        )
+        bureau_score = st.number_input(
+            "BureauScore",
+            min_value=0.0,
+            value=float(defaults["BureauScore"]),
+        )
+        unemployment_pct = st.number_input(
+            "Unemployment_pct",
+            min_value=0.0,
+            value=float(defaults["Unemployment_pct"]),
+        )
+        inflation_pct = st.number_input(
+            "Inflation_pct",
+            min_value=0.0,
+            value=float(defaults["Inflation_pct"]),
+        )
+
+    with loan_col:
+        st.markdown("**Loan Details**")
+        loan_type = st.selectbox(
+            "LoanType",
+            options=sorted(feature_table["LoanType"].dropna().astype(str).unique().tolist()),
+        )
+        loan_amount = st.number_input(
+            "LoanAmount_AED",
+            min_value=0.0,
+            value=float(defaults["LoanAmount_AED"]),
+        )
+        loan_tenure = st.number_input(
+            "LoanTenureMonths",
+            min_value=1,
+            value=int(defaults["LoanTenureMonths"]),
+            step=1,
+        )
+        interest_rate = st.number_input(
+            "InterestRate_pct",
+            min_value=0.0,
+            value=float(defaults["InterestRate_pct"]),
+        )
+        st.info(
+            "Derived fields such as EMI and loan burden ratios are computed internally from these inputs."
+        )
+
+    applicant_inputs = {
+        "Age": age,
+        "Gender": gender,
+        "Nationality": nationality,
+        "City": city,
+        "EmploymentStatus": employment_status,
+        "AnnualIncome_AED": annual_income,
+        "OtherObligations_AED": other_obligations,
+        "BureauScore": bureau_score,
+        "LoanType": loan_type,
+        "LoanAmount_AED": loan_amount,
+        "LoanTenureMonths": loan_tenure,
+        "InterestRate_pct": interest_rate,
+        "Unemployment_pct": unemployment_pct,
+        "Inflation_pct": inflation_pct,
+    }
+    applicant_df, computed_ratios = build_applicant_model_row(applicant_inputs, feature_table)
+
+    st.markdown("**Computed Financial Ratios**")
+    ratios_col1, ratios_col2, ratios_col3, ratios_col4, ratios_col5 = st.columns(5)
+    ratios_col1.metric("EMI_AED", f"{computed_ratios['EMI_AED']:.2f}")
+    ratios_col2.metric("LoanToAnnualIncome", f"{computed_ratios['LoanToAnnualIncome']:.3f}")
+    ratios_col3.metric("DebtToIncomeRatio", f"{computed_ratios['DebtToIncomeRatio']:.3f}")
+    ratios_col4.metric("EMIToIncomeRatio", f"{computed_ratios['EMIToIncomeRatio']:.3f}")
+    ratios_col5.metric("LoanBurdenRatio", f"{computed_ratios['LoanBurdenRatio']:.3f}")
+
+    if st.button("Predict Application Risk"):
+        probability = float(model.predict_proba(applicant_df)[:, 1][0])
+        band = risk_band(probability)
+        recommendation = decision_support_recommendation(probability)
+        shap_result: dict[str, Any] | None = None
+        shap_warning: str | None = None
+
+        try:
+            shap_result = compute_local_shap_analysis(model, applicant_df, feature_table)
+        except Exception as exc:
+            shap_warning = f"Local SHAP explanation could not be generated for this applicant: {exc}"
+
+        positive_drivers = shap_result["positive_drivers"] if shap_result else []
+        negative_drivers = shap_result["negative_drivers"] if shap_result else []
+        plot_df = shap_result["plot_df"] if shap_result else pd.DataFrame()
+        explanation = generate_plain_english_explanation(
+            probability,
+            positive_drivers,
+            negative_drivers,
+        )
+        guidance = generate_counterfactual_guidance(applicant_df, positive_drivers)
+
+        st.session_state["current_prediction_result"] = {
+            "probability": probability,
+            "risk_band": band,
+            "recommendation": recommendation,
+            "applicant_df": applicant_df,
+            "computed_ratios": computed_ratios,
+            "positive_drivers": positive_drivers,
+            "negative_drivers": negative_drivers,
+            "plot_df": plot_df,
+            "explanation": explanation,
+            "guidance": guidance,
+            "shap_warning": shap_warning,
+        }
+
+    prediction_result = st.session_state.get("current_prediction_result")
+    if prediction_result:
+        metric_a, metric_b, metric_c = st.columns(3)
+        metric_a.metric("Default Probability", f"{prediction_result['probability']:.2%}")
+        metric_b.metric("Risk Category", prediction_result["risk_band"])
+        metric_c.metric("Decision Support Recommendation", prediction_result["recommendation"])
+        st.caption(
+            "Decision support only. This dashboard does not make final credit approval or rejection decisions."
+        )
+        st.write(prediction_result["explanation"])
+
+        if prediction_result["shap_warning"]:
+            st.warning(prediction_result["shap_warning"])
+
+        st.markdown("**Current Application Risk Drivers**")
+        drivers_left, drivers_right = st.columns(2)
+        with drivers_left:
+            st.write("Top factors increasing default risk")
+            if prediction_result["positive_drivers"]:
+                for idx, driver in enumerate(prediction_result["positive_drivers"][:3], start=1):
+                    st.write(
+                        f"{idx}. {driver['display_name']} ({driver['shap_value']:+.4f})"
+                    )
+                    st.caption(driver["interpretation"])
+            else:
+                st.warning("No positive local SHAP drivers were recovered for this applicant.")
+        with drivers_right:
+            st.write("Top factors reducing default risk")
+            if prediction_result["negative_drivers"]:
+                for idx, driver in enumerate(prediction_result["negative_drivers"][:3], start=1):
+                    st.write(
+                        f"{idx}. {driver['display_name']} ({driver['shap_value']:+.4f})"
+                    )
+                    st.caption(driver["interpretation"])
+            else:
+                st.warning("No negative local SHAP drivers were recovered for this applicant.")
+
+        figure = build_local_shap_figure(prediction_result["plot_df"])
+        if figure is not None:
+            st.plotly_chart(figure, width="stretch")
+        else:
+            st.warning("Local SHAP plot is unavailable for this applicant.")
+
+        st.markdown("**Counterfactual Guidance**")
+        for item in prediction_result["guidance"]:
+            st.write(f"- {item}")
+
+    st.caption(
+        f"Excluded from user input: {', '.join(EXCLUDED_USER_INPUT_FIELDS[:5])}, plus other post-loan fields."
+    )
 
 with tab_performance:
     st.subheader("Validated Model Performance")
@@ -244,16 +438,23 @@ with tab_fairness:
 
 with tab_counterfactual:
     st.subheader("Counterfactual Guidance")
-    counterfactual_payload = load_json(counterfactual_path)
-    if counterfactual_payload is None:
-        show_warning_if_missing("Counterfactual file", counterfactual_path)
+    prediction_result = st.session_state.get("current_prediction_result")
+    if prediction_result:
+        st.write("Current applicant guidance based on live local SHAP drivers:")
+        for item in prediction_result["guidance"]:
+            st.write(f"- {item}")
+        st.caption("These are decision-support suggestions only and do not promise approval.")
     else:
-        changes = format_counterfactual_changes(counterfactual_payload)
-        st.dataframe(changes.astype(str), width="stretch")
-        st.write(
-            "Counterfactual explanations turn a rejection into guidance. In the saved example, "
-            "higher bureau score and lower loan burden are the most direct levers for reducing risk."
-        )
+        counterfactual_payload = load_json(counterfactual_path)
+        if counterfactual_payload is None:
+            show_warning_if_missing("Counterfactual file", counterfactual_path)
+        else:
+            changes = format_counterfactual_changes(counterfactual_payload)
+            st.dataframe(changes.astype(str), width="stretch")
+            st.write(
+                "Counterfactual explanations turn a rejection into guidance. In the saved example, "
+                "higher bureau score and lower loan burden are the most direct levers for reducing risk."
+            )
 
 with tab_leakage:
     st.subheader("Leakage Audit")

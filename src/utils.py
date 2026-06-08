@@ -10,6 +10,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
+from .data_api_loader import DEFAULT_LOCAL_DATASET, load_dataset
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_RAW_DIR = ROOT_DIR / "data" / "raw"
 DATA_PROCESSED_DIR = ROOT_DIR / "data" / "processed"
@@ -51,13 +53,11 @@ def detect_dataset_file(data_dir: Optional[Path] = None) -> Path:
 
 
 def load_dataset_auto(data_dir: Optional[Path] = None) -> Tuple[pd.DataFrame, Path]:
-    """Load dataset from first detected raw file."""
-    dataset_path = detect_dataset_file(data_dir)
-    if dataset_path.suffix.lower() == ".csv":
-        df = pd.read_csv(dataset_path)
-    else:
-        df = pd.read_excel(dataset_path)
-    return df, dataset_path
+    """Load the default project dataset through the shared data loader."""
+    dataset_path = detect_dataset_file(data_dir) if data_dir else DEFAULT_LOCAL_DATASET
+    df, metadata = load_dataset(source="local", path=dataset_path)
+    resolved_path = Path(metadata["path"])
+    return df, resolved_path
 
 
 def normalize_target(df: pd.DataFrame, target_col: str = "Default_Flag") -> pd.DataFrame:

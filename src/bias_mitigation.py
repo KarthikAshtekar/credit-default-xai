@@ -8,7 +8,7 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 from fairlearn.postprocessing import ThresholdOptimizer
-from sklearn.base import clone
+from sklearn.base import BaseEstimator, ClassifierMixin, clone
 
 from .data_preprocessing import (
     FEATURE_SET_APPLICATION,
@@ -93,15 +93,41 @@ def apply_reweighing(model, X_train, y_train, sensitive_train):
     return weighted_model
 
 
+class _Float64ProbabilityWrapper(BaseEstimator, ClassifierMixin):
+    """Expose a fitted estimator while normalizing probabilities to float64."""
+
+    def __init__(self, estimator):
+        self.estimator = estimator
+        self.estimator_ = estimator
+        if hasattr(estimator, "classes_"):
+            self.classes_ = estimator.classes_
+
+    def fit(self, X, y=None, **kwargs):
+        self.estimator_ = self.estimator
+        return self
+
+    def predict(self, X):
+        return self.estimator.predict(X)
+
+    def predict_proba(self, X):
+        return np.asarray(self.estimator.predict_proba(X), dtype=np.float64)
+
+
 def apply_threshold_optimizer(model, X_train, y_train, sensitive_train):
     # Fit post-processor on probability scores from the base classifier.
     threshold_opt = ThresholdOptimizer(
-        estimator=model,
+        estimator=_Float64ProbabilityWrapper(model),
         constraints="equalized_odds",
-        prefit=False,
+        prefit=True,
         predict_method="predict_proba",
     )
-    threshold_opt.fit(X_train, y_train, sensitive_features=sensitive_train)
+    # Fairlearn's postprocessor can trip over newer pandas dtypes during internal
+    # masked assignment; passing plain NumPy arrays avoids that compatibility path.
+    threshold_opt.fit(
+        X_train,
+        np.asarray(y_train),
+        sensitive_features=np.asarray(sensitive_train),
+    )
     return threshold_opt
 
 
@@ -154,7 +180,7 @@ def run(model_path: Path | None = None) -> Dict:
 
     # Post-processing with Fairlearn
     postproc = apply_threshold_optimizer(base_model, X_train, y_train, s_train)
-    y_pred_post = postproc.predict(X_test, sensitive_features=s_test)
+    y_pred_post = postproc.predict(X_test, sensitive_features=np.asarray(s_test))
     y_proba_post = y_pred_post.astype(float)
     perf_post = evaluate_classification(y_test, y_pred_post, y_proba_post)
     fair_post = _approval_fairness(y_test.values, y_pred_post, s_test.values)
