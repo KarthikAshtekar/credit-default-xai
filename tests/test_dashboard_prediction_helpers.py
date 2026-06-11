@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import math
 
-from dashboard.common import get_application_artifact_paths, get_feature_table
+import pandas as pd
+
+from dashboard.common import get_application_artifact_paths
 from dashboard.prediction_helpers import (
     EXCLUDED_USER_INPUT_FIELDS,
     USER_INPUT_FIELDS,
@@ -12,6 +14,59 @@ from dashboard.prediction_helpers import (
     calculate_emi,
     risk_band,
 )
+
+
+def _reference_table() -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "Age": 35,
+                "Gender": "Female",
+                "Nationality": "UAE",
+                "City": "Dubai",
+                "EmploymentStatus": "Salaried",
+                "AnnualIncome_AED": 240000.0,
+                "OtherObligations_AED": 12000.0,
+                "BureauScore": 680.0,
+                "LoanType": "Personal Loan",
+                "LoanAmount_AED": 120000.0,
+                "LoanTenureMonths": 24,
+                "InterestRate_pct": 12.0,
+                "LoanStartYear": 2024,
+                "LoanStartMonth": 6,
+                "LoanStartQuarter": 2,
+                "Unemployment_pct": 4.0,
+                "Inflation_pct": 2.5,
+                "EMI_AED": 5000.0,
+                "LoanToAnnualIncome": 0.5,
+                "ObligationsToIncome": 0.05,
+                "EMIToIncome": 0.02,
+            },
+            {
+                "Age": 45,
+                "Gender": "Male",
+                "Nationality": "India",
+                "City": "Abu Dhabi",
+                "EmploymentStatus": "Self-employed",
+                "AnnualIncome_AED": 180000.0,
+                "OtherObligations_AED": 18000.0,
+                "BureauScore": 620.0,
+                "LoanType": "Auto Loan",
+                "LoanAmount_AED": 150000.0,
+                "LoanTenureMonths": 36,
+                "InterestRate_pct": 10.0,
+                "LoanStartYear": 2023,
+                "LoanStartMonth": 3,
+                "LoanStartQuarter": 1,
+                "Unemployment_pct": 4.5,
+                "Inflation_pct": 3.0,
+                "EMI_AED": 4500.0,
+                "LoanToAnnualIncome": 0.8,
+                "ObligationsToIncome": 0.1,
+                "EMIToIncome": 0.025,
+            },
+        ]
+    )
 
 
 def _sample_user_input(reference_table):
@@ -41,14 +96,14 @@ def test_calculate_emi_matches_standard_formula() -> None:
 
 
 def test_build_applicant_input_row_matches_application_schema() -> None:
-    feature_table = get_feature_table()
+    feature_table = _reference_table()
     applicant_df, _ = build_applicant_model_row(_sample_user_input(feature_table), feature_table)
     assert applicant_df.columns.tolist() == feature_table.columns.tolist()
     assert len(applicant_df) == 1
 
 
 def test_derived_ratios_are_computed_internally() -> None:
-    feature_table = get_feature_table()
+    feature_table = _reference_table()
     applicant_df, computed = build_applicant_model_row(
         _sample_user_input(feature_table), feature_table
     )
@@ -87,7 +142,7 @@ def test_dashboard_excludes_post_loan_behavioral_fields_from_user_input() -> Non
 
 
 def test_applicant_presets_use_only_user_input_fields() -> None:
-    feature_table = get_feature_table()
+    feature_table = _reference_table()
     presets = build_applicant_presets(feature_table)
 
     assert {
