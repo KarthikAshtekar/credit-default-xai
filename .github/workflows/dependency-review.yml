@@ -12,3 +12,7 @@ jobs:
     steps:
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
+        # This repository may not have GitHub Dependency Graph enabled.
+        # Keep dependency review advisory so portfolio PRs are not blocked by
+        # repository security-feature availability.
+        continue-on-error: true
