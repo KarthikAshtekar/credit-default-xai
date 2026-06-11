@@ -11,7 +11,9 @@ from urllib.parse import urlparse
 import pandas as pd
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_LOCAL_DATASET = ROOT_DIR / "data" / "raw" / "Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx"
+DEFAULT_LOCAL_DATASET = (
+    ROOT_DIR / "data" / "raw" / "Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx"
+)
 PROTECTED_ATTRIBUTE_CANDIDATES = ["Gender", "Age", "Nationality", "City", "EmploymentStatus"]
 
 UCI_DATASETS = {
@@ -37,6 +39,13 @@ UCI_ALIASES = {
 
 def _protected_attributes_available(df: pd.DataFrame) -> list[str]:
     return [col for col in PROTECTED_ATTRIBUTE_CANDIDATES if col in df.columns]
+
+
+def _project_relative_path(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(ROOT_DIR.resolve()).as_posix()
+    except ValueError:
+        return str(path)
 
 
 def _load_tabular_file(path_or_url: str | Path) -> pd.DataFrame:
@@ -73,7 +82,7 @@ def _load_local_dataset(path: str | Path | None) -> tuple[pd.DataFrame, dict[str
         "target_column": "Default_Flag" if "Default_Flag" in df.columns else None,
         "protected_attributes_available": _protected_attributes_available(df),
         "notes": "Default project dataset loaded from the local case-study file.",
-        "path": str(dataset_path),
+        "path": _project_relative_path(dataset_path),
     }
     return df, metadata
 
@@ -106,7 +115,9 @@ def _normalize_uci_dataset_name(dataset_name: str | None) -> str:
     normalized = UCI_ALIASES.get(normalized, normalized)
     if normalized not in UCI_DATASETS:
         supported = ", ".join(sorted(UCI_DATASETS))
-        raise ValueError(f"Unsupported UCI dataset '{dataset_name}'. Supported values: {supported}.")
+        raise ValueError(
+            f"Unsupported UCI dataset '{dataset_name}'. Supported values: {supported}."
+        )
     return normalized
 
 

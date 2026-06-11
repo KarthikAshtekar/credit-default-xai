@@ -11,7 +11,14 @@ from .data_preprocessing import (
 )
 from .evaluate_models import run_model_experiment
 from .model_builders import build_xgboost_estimator
-from .utils import MODELS_DIR, REPORTS_DIR, ensure_directories, load_dataset_auto, save_json
+from .utils import (
+    MODELS_DIR,
+    REPORTS_DIR,
+    ensure_directories,
+    load_dataset_auto,
+    project_relative_path,
+    save_json,
+)
 
 
 def run(output_path: Path | None = None) -> dict:
@@ -42,18 +49,18 @@ def run(output_path: Path | None = None) -> dict:
     )
 
     payload = {
-        "dataset": str(data_path),
+        "dataset": project_relative_path(data_path),
         "models": {
             "xgboost_application": {
-                "model_path": str(application_path),
+                "model_path": project_relative_path(application_path),
                 "metrics": application["metrics"],
             },
             "xgboost_behavioral": {
-                "model_path": str(MODELS_DIR / "xgboost_behavioral.pkl"),
+                "model_path": project_relative_path(MODELS_DIR / "xgboost_behavioral.pkl"),
                 "metrics": behavioral["metrics"],
             },
             "xgboost_full_diagnostic": {
-                "model_path": str(MODELS_DIR / "xgboost_full_diagnostic.pkl"),
+                "model_path": project_relative_path(MODELS_DIR / "xgboost_full_diagnostic.pkl"),
                 "metrics": full_diagnostic["metrics"],
             },
         },

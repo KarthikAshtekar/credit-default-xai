@@ -26,6 +26,7 @@ from .utils import (
     infer_protected_attribute,
     load_dataset_auto,
     load_model,
+    project_relative_path,
     save_json,
 )
 
@@ -104,7 +105,7 @@ def run(model_path: Path | None = None, threshold: float = 0.50) -> Dict:
     fairness = compute_fairness_metrics(approval_true.values, approval_pred, sensitive.values)
 
     payload = {
-        "model": str(model_path),
+        "model": project_relative_path(model_path),
         "feature_set": feature_set,
         "protected_attribute": protected_col,
         "approval_threshold": threshold,

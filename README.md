@@ -2,6 +2,26 @@
 
 Built a leakage-audited credit default risk model using XGBoost, SHAP, LIME, counterfactual explanations, and fairness metrics.
 
+## Current Completion Status
+Complete:
+- application-time logistic and XGBoost model training
+- leakage audit separating application-time features from post-loan behavioral signals
+- model validation with random and temporal splits
+- SHAP, LIME, counterfactual, fairness, and mitigation artifacts for the final application model
+- Streamlit dashboard with applicant prediction, explanation, fairness, leakage, and scorecard-style report views
+- one-command artifact regeneration with `python -m src.run_pipeline`
+
+Intentionally out of scope:
+- production lending deployment
+- calibrated regulatory scorecard development
+- causal fairness analysis
+- reject inference
+
+Future work:
+- public external validation on real-world credit datasets
+- HMDA-style fair-lending evaluation
+- calibrated scorecard work with binning, WOE/IV, PDO, base odds, and calibration
+
 ## Business Problem
 Credit decisions affect access to financial opportunity. A useful credit risk model must be accurate enough to support underwriting, transparent enough to explain decisions, and fair enough to surface group-level risk disparities instead of hiding them.
 
@@ -14,6 +34,14 @@ This project asks:
 - 10,000 rows
 - 28 original columns
 - Binary target: `Default_Flag`
+
+Place the local case-study file at:
+
+```text
+data/raw/Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx
+```
+
+Raw data files and model pickle artifacts are intentionally ignored by Git. A fresh clone can regenerate model artifacts after the dataset is placed in `data/raw/`.
 
 The repository now uses three feature framings:
 - `application`: variables available at loan start only
@@ -140,6 +168,7 @@ streamlit run dashboard/app.py
 The dashboard includes:
 - Project overview
 - Applicant risk prediction
+- Applicant Risk Scorecard Report
 - Clean model performance
 - SHAP explainability
 - Fairness analysis
@@ -151,6 +180,7 @@ The dashboard prediction form:
 - computes EMI and loan-burden ratios internally
 - displays current applicant-level SHAP drivers after prediction
 - intentionally excludes post-loan behavioral features from the application model
+- includes a scorecard-style applicant report, which is not a calibrated regulatory credit scorecard
 
 ## How To Run
 Install dependencies:
@@ -160,6 +190,12 @@ pip install -r requirements.txt
 ```
 
 Generate the validated artifacts:
+
+```bash
+python -m src.run_pipeline
+```
+
+Or run individual stages:
 
 ```bash
 python -m src.train_logistic
@@ -172,6 +208,32 @@ python -m src.fairness_metrics
 python -m src.bias_mitigation
 python -m src.counterfactuals
 ```
+
+Optional pipeline shortcuts:
+
+```bash
+python -m src.run_pipeline --skip-explainability
+python -m src.run_pipeline --skip-counterfactuals
+python -m src.run_pipeline --skip-mitigation
+```
+
+Generated artifacts:
+- ignored model pickles under `models/`
+- reproducible validation reports under `reports/model_validation/`
+- leakage audit reports under `reports/leakage_audit/`
+- application explainability artifacts under `reports/explainability_reports/application_model/`
+- application fairness artifacts under `reports/fairness_reports/application_model/`
+
+Development checks:
+
+```bash
+python -m compileall src dashboard
+pytest
+ruff check .
+ruff format --check .
+```
+
+Core Ruff checks intentionally exclude notebooks. Treat notebooks as narrative companions and use `nbqa` separately when notebook linting is needed.
 
 Launch the dashboard:
 
@@ -191,6 +253,7 @@ credit-default-xai/
 │   └── 13_fairness_vs_accuracy_tradeoff.ipynb
 ├── src/
 │   ├── data_preprocessing.py
+│   ├── run_pipeline.py
 │   ├── feature_engineering.py
 │   ├── leakage_audit.py
 │   ├── train_logistic.py
@@ -203,6 +266,7 @@ credit-default-xai/
 │   └── bias_mitigation.py
 ├── dashboard/
 │   ├── app.py
+│   ├── report_utils.py
 │   └── common.py
 ├── reports/
 │   ├── explainability_reports/
@@ -211,6 +275,7 @@ credit-default-xai/
 │   ├── model_validation/
 │   └── final_project_report.md
 ├── docs/
+│   ├── model_card.md
 │   └── cv_bullets.md
 └── models/
     ├── logistic_application.pkl
@@ -226,6 +291,13 @@ credit-default-xai/
 - No causal fairness analysis
 - No external validation yet on real public datasets
 - No reject inference or calibrated scorecard development
+
+## Interview Defense
+- The near-perfect full-feature XGBoost model was rejected because its performance depended on post-loan behavioral information that would not exist at loan application time.
+- The lower application-time ROC-AUC is the honest underwriting result because it uses only fields available when a loan decision would be made.
+- Behavioral features can be useful for portfolio monitoring, but using them for origination creates hindsight leakage.
+- Fairness mitigation can reduce performance because it changes the operating decision rule or training weights; the project reports this as a tradeoff, not a free improvement.
+- Production readiness would require real data governance, calibrated scorecard or probability calibration, monitoring, adverse-action governance, legal review, reject inference strategy, and deployment controls.
 
 ## Future Work
 - UCI Taiwan credit card default dataset

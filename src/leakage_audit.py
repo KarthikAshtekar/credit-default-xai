@@ -17,7 +17,13 @@ from .data_preprocessing import (
 )
 from .evaluate_models import fit_pipeline, run_model_experiment
 from .model_builders import build_xgboost_estimator
-from .utils import REPORTS_DIR, ensure_directories, load_dataset_auto, save_json
+from .utils import (
+    REPORTS_DIR,
+    ensure_directories,
+    load_dataset_auto,
+    project_relative_path,
+    save_json,
+)
 
 LEAKAGE_AUDIT_DIR = REPORTS_DIR / "leakage_audit"
 
@@ -195,10 +201,14 @@ def run() -> dict:
 
     suspicious_features: list[str] = []
     corr_hits = corr_df.loc[corr_df["correlation_with_target"].abs() > 0.80, "feature"].tolist()
-    auc_hits = single_feature_auc_df.loc[single_feature_auc_df["roc_auc"] > 0.90, "feature"].tolist()
+    auc_hits = single_feature_auc_df.loc[
+        single_feature_auc_df["roc_auc"] > 0.90, "feature"
+    ].tolist()
     mi_threshold = float(mi_df["mutual_information"].quantile(0.95)) if not mi_df.empty else 0.0
     mi_hits = mi_df.loc[mi_df["mutual_information"] >= mi_threshold, "feature"].tolist()
-    behavior_hits = [feature for feature in POST_OUTCOME_BEHAVIORAL_FEATURES if feature in feature_columns]
+    behavior_hits = [
+        feature for feature in POST_OUTCOME_BEHAVIORAL_FEATURES if feature in feature_columns
+    ]
 
     suspicious_features.extend([f"{feature}: abs(correlation) > 0.80" for feature in corr_hits])
     suspicious_features.extend([f"{feature}: single-feature AUC > 0.90" for feature in auc_hits])
@@ -209,10 +219,14 @@ def run() -> dict:
     suspicious_features = sorted(set(suspicious_features))
 
     with open(LEAKAGE_AUDIT_DIR / "suspicious_features.txt", "w", encoding="utf-8") as handle:
-        handle.write("\n".join(suspicious_features) if suspicious_features else "No suspicious features found.")
+        handle.write(
+            "\n".join(suspicious_features)
+            if suspicious_features
+            else "No suspicious features found."
+        )
 
     summary = {
-        "dataset": str(data_path),
+        "dataset": project_relative_path(data_path),
         "row_count": int(len(df_raw)),
         "feature_count": int(len(feature_columns)),
         "top_correlations": corr_df.head(10).to_dict(orient="records"),

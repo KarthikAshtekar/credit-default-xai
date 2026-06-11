@@ -7,7 +7,14 @@ from pathlib import Path
 from .data_preprocessing import FEATURE_SET_APPLICATION, FEATURE_SET_BEHAVIORAL
 from .evaluate_models import run_model_experiment
 from .model_builders import build_logistic_estimator
-from .utils import MODELS_DIR, REPORTS_DIR, ensure_directories, load_dataset_auto, save_json
+from .utils import (
+    MODELS_DIR,
+    REPORTS_DIR,
+    ensure_directories,
+    load_dataset_auto,
+    project_relative_path,
+    save_json,
+)
 
 
 def run(output_path: Path | None = None) -> dict:
@@ -31,14 +38,14 @@ def run(output_path: Path | None = None) -> dict:
     )
 
     payload = {
-        "dataset": str(data_path),
+        "dataset": project_relative_path(data_path),
         "models": {
             "logistic_application": {
-                "model_path": str(application_path),
+                "model_path": project_relative_path(application_path),
                 "metrics": application["metrics"],
             },
             "logistic_behavioral": {
-                "model_path": str(MODELS_DIR / "logistic_behavioral.pkl"),
+                "model_path": project_relative_path(MODELS_DIR / "logistic_behavioral.pkl"),
                 "metrics": behavioral["metrics"],
             },
         },

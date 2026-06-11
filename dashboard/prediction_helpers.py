@@ -56,6 +56,13 @@ SENSITIVE_OR_NON_ACTIONABLE_FIELDS = {
     "LoanStartQuarter",
 }
 
+PRESET_NAMES = [
+    "Reference applicant",
+    "Low-risk salaried applicant",
+    "High-burden applicant",
+    "Borderline / medium-risk applicant",
+]
+
 FEATURE_LABELS = {
     "Age": "Age",
     "Gender": "Gender",
@@ -106,6 +113,71 @@ def build_defaults(reference_table: pd.DataFrame) -> dict[str, Any]:
         else:
             defaults[column] = str(series.mode().iloc[0]) if not series.empty else "Unknown"
     return defaults
+
+
+def _category_default(defaults: dict[str, Any], field: str) -> str:
+    return str(defaults.get(field, "Unknown"))
+
+
+def build_applicant_presets(reference_table: pd.DataFrame) -> dict[str, dict[str, Any]]:
+    """Return demo-safe presets using only application-time user input fields."""
+
+    defaults = build_defaults(reference_table)
+    reference = {
+        "Age": int(defaults.get("Age", 35)),
+        "Gender": _category_default(defaults, "Gender"),
+        "Nationality": _category_default(defaults, "Nationality"),
+        "City": _category_default(defaults, "City"),
+        "EmploymentStatus": _category_default(defaults, "EmploymentStatus"),
+        "AnnualIncome_AED": float(defaults.get("AnnualIncome_AED", 180000.0)),
+        "OtherObligations_AED": float(defaults.get("OtherObligations_AED", 20000.0)),
+        "BureauScore": float(defaults.get("BureauScore", 650.0)),
+        "LoanType": _category_default(defaults, "LoanType"),
+        "LoanAmount_AED": float(defaults.get("LoanAmount_AED", 150000.0)),
+        "LoanTenureMonths": int(defaults.get("LoanTenureMonths", 36)),
+        "InterestRate_pct": float(defaults.get("InterestRate_pct", 10.0)),
+        "Unemployment_pct": float(defaults.get("Unemployment_pct", 4.0)),
+        "Inflation_pct": float(defaults.get("Inflation_pct", 3.0)),
+    }
+
+    low_risk = {
+        **reference,
+        "Age": 38,
+        "EmploymentStatus": "Salaried",
+        "AnnualIncome_AED": 420000.0,
+        "OtherObligations_AED": 10000.0,
+        "BureauScore": 820.0,
+        "LoanAmount_AED": 90000.0,
+        "LoanTenureMonths": 36,
+        "InterestRate_pct": 7.5,
+    }
+    high_burden = {
+        **reference,
+        "Age": 29,
+        "AnnualIncome_AED": 85000.0,
+        "OtherObligations_AED": 45000.0,
+        "BureauScore": 430.0,
+        "LoanAmount_AED": 260000.0,
+        "LoanTenureMonths": 24,
+        "InterestRate_pct": 16.5,
+    }
+    borderline = {
+        **reference,
+        "Age": 34,
+        "AnnualIncome_AED": 185000.0,
+        "OtherObligations_AED": 28000.0,
+        "BureauScore": 635.0,
+        "LoanAmount_AED": 145000.0,
+        "LoanTenureMonths": 36,
+        "InterestRate_pct": 11.5,
+    }
+
+    return {
+        "Reference applicant": reference,
+        "Low-risk salaried applicant": low_risk,
+        "High-burden applicant": high_burden,
+        "Borderline / medium-risk applicant": borderline,
+    }
 
 
 def build_applicant_model_row(
@@ -204,7 +276,9 @@ def interpret_driver(
         return f"Current {FEATURE_LABELS.get(raw_feature, raw_feature).lower()} is {current_value}, which pushes predicted risk {direction_text}."
 
     current_value = applicant_df.iloc[0].get(raw_feature)
-    if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(reference_table[raw_feature]):
+    if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(
+        reference_table[raw_feature]
+    ):
         median_value = float(reference_table[raw_feature].median())
         relation = "above" if float(current_value) > median_value else "below"
         if raw_feature == "BureauScore":
@@ -233,13 +307,23 @@ def driver_reason_text(
         return f"{FEATURE_LABELS.get(raw_feature, raw_feature).lower()} is {current_value}"
 
     current_value = applicant_df.iloc[0].get(raw_feature)
-    if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(reference_table[raw_feature]):
+    if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(
+        reference_table[raw_feature]
+    ):
         median_value = float(reference_table[raw_feature].median())
         relation = "above" if float(current_value) > median_value else "below"
         if raw_feature == "BureauScore":
             if shap_value > 0:
-                return "bureau score is relatively weak" if relation == "below" else "bureau score remains a notable model driver"
-            return "bureau score is relatively strong" if relation == "above" else "bureau score helps reduce modeled risk"
+                return (
+                    "bureau score is relatively weak"
+                    if relation == "below"
+                    else "bureau score remains a notable model driver"
+                )
+            return (
+                "bureau score is relatively strong"
+                if relation == "above"
+                else "bureau score helps reduce modeled risk"
+            )
         if raw_feature in {"LoanToAnnualIncome", "LoanAmount_AED", "EMI_AED", "EMIToIncome"}:
             if shap_value > 0:
                 return (
@@ -266,12 +350,28 @@ def driver_reason_text(
             )
         if raw_feature == "InterestRate_pct":
             if shap_value > 0:
-                return "interest rate is relatively high" if relation == "above" else "interest rate remains a notable model driver"
-            return "interest rate is comparatively moderate" if relation == "below" else "interest rate helps reduce modeled risk"
+                return (
+                    "interest rate is relatively high"
+                    if relation == "above"
+                    else "interest rate remains a notable model driver"
+                )
+            return (
+                "interest rate is comparatively moderate"
+                if relation == "below"
+                else "interest rate helps reduce modeled risk"
+            )
         if raw_feature == "AnnualIncome_AED":
             if shap_value > 0:
-                return "annual income is relatively limited" if relation == "below" else "annual income is a notable model driver"
-            return "annual income is relatively strong" if relation == "above" else "income profile helps reduce modeled risk"
+                return (
+                    "annual income is relatively limited"
+                    if relation == "below"
+                    else "annual income is a notable model driver"
+                )
+            return (
+                "annual income is relatively strong"
+                if relation == "above"
+                else "income profile helps reduce modeled risk"
+            )
         return f"{readable_name.lower()} is a notable model driver"
 
     return readable_name.lower()
@@ -298,15 +398,17 @@ def compute_local_shap_analysis(
     else:
         shap_row = np.asarray(raw_shap)[0]
 
-    contributions = (
-        pd.Series(shap_row, index=feature_names)
-        .sort_values(key=lambda series: series.abs(), ascending=False)
+    contributions = pd.Series(shap_row, index=feature_names).sort_values(
+        key=lambda series: series.abs(), ascending=False
     )
 
     drivers = []
     for transformed_name, shap_value in contributions.items():
         raw_feature, readable_name = humanize_feature_name(transformed_name)
-        if transformed_name.startswith("cat__") and applicant_df.iloc[0].get(raw_feature) not in readable_name:
+        if (
+            transformed_name.startswith("cat__")
+            and applicant_df.iloc[0].get(raw_feature) not in readable_name
+        ):
             continue
         drivers.append(
             {
@@ -386,7 +488,9 @@ def decision_support_recommendation(probability: float) -> str:
 
 def _select_actionable_positive_drivers(drivers: list[dict[str, Any]]) -> list[dict[str, Any]]:
     actionable = [
-        driver for driver in drivers if driver["raw_feature"] not in SENSITIVE_OR_NON_ACTIONABLE_FIELDS
+        driver
+        for driver in drivers
+        if driver["raw_feature"] not in SENSITIVE_OR_NON_ACTIONABLE_FIELDS
     ]
     return actionable or drivers
 
@@ -405,9 +509,13 @@ def generate_plain_english_explanation(
         lead_in = f"Your predicted default risk is {label} mainly because "
 
     if not actionable_drivers:
-        return f"Your predicted default risk is {label} based on the overall application-time profile."
+        return (
+            f"Your predicted default risk is {label} based on the overall application-time profile."
+        )
 
-    reasons = [driver.get("reason_text", driver["display_name"].lower()) for driver in actionable_drivers]
+    reasons = [
+        driver.get("reason_text", driver["display_name"].lower()) for driver in actionable_drivers
+    ]
     deduped_reasons = list(dict.fromkeys(reasons))[:3]
     return lead_in + ", ".join(deduped_reasons) + "."
 
@@ -426,13 +534,17 @@ def generate_counterfactual_guidance(
                 "Reducing the requested loan amount, extending tenure, or increasing declared income may reduce predicted risk."
             )
         elif raw_feature in {"OtherObligations_AED", "ObligationsToIncome"}:
-            guidance.append("Reducing existing obligations may improve affordability and may reduce predicted risk.")
+            guidance.append(
+                "Reducing existing obligations may improve affordability and may reduce predicted risk."
+            )
         elif raw_feature == "InterestRate_pct":
             guidance.append("Securing a lower interest rate may reduce predicted risk.")
         elif raw_feature == "AnnualIncome_AED":
             guidance.append("Demonstrating stronger verifiable income may reduce predicted risk.")
         elif raw_feature == "EmploymentStatus":
-            guidance.append("Providing stronger employment stability evidence may reduce predicted risk.")
+            guidance.append(
+                "Providing stronger employment stability evidence may reduce predicted risk."
+            )
 
     deduped_guidance = list(dict.fromkeys(guidance))
     if deduped_guidance:

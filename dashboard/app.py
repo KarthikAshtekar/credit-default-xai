@@ -15,11 +15,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 try:
-    from .common import ensure_model, get_feature_table
+    from .common import ensure_model, get_application_artifact_paths, get_feature_table
     from .prediction_helpers import (
         EXCLUDED_USER_INPUT_FIELDS,
         build_applicant_model_row,
-        build_defaults,
+        build_applicant_presets,
         build_local_shap_figure,
         compute_local_shap_analysis,
         decision_support_recommendation,
@@ -27,12 +27,13 @@ try:
         generate_plain_english_explanation,
         risk_band,
     )
+    from .report_utils import DEFAULT_DECISION_THRESHOLD, build_applicant_risk_report
 except ImportError:
-    from common import ensure_model, get_feature_table
+    from common import ensure_model, get_application_artifact_paths, get_feature_table
     from prediction_helpers import (
         EXCLUDED_USER_INPUT_FIELDS,
         build_applicant_model_row,
-        build_defaults,
+        build_applicant_presets,
         build_local_shap_figure,
         compute_local_shap_analysis,
         decision_support_recommendation,
@@ -40,9 +41,9 @@ except ImportError:
         generate_plain_english_explanation,
         risk_band,
     )
+    from report_utils import DEFAULT_DECISION_THRESHOLD, build_applicant_risk_report
 
 
-REPORTS_DIR = ROOT / "reports"
 DATASET_SOURCE_OPTIONS = [
     "Local Case Dataset",
     "UCI Default Credit Card",
@@ -82,6 +83,13 @@ def format_counterfactual_changes(counterfactual_payload: dict[str, Any]) -> pd.
     return changes[changes["original"].astype(str) != changes["counterfactual"].astype(str)]
 
 
+def option_index(options: list[str], selected: str) -> int:
+    try:
+        return options.index(selected)
+    except ValueError:
+        return 0
+
+
 st.set_page_config(
     page_title="Explainable and Fair Credit Default Risk Prediction",
     page_icon="📊",
@@ -103,52 +111,37 @@ if selected_dataset_source != "Local Case Dataset":
     if selected_dataset_source == "Direct URL":
         st.sidebar.text_input("Direct dataset URL", value="", disabled=True)
 
-performance_path = REPORTS_DIR / "model_validation" / "clean_feature_model_comparison.csv"
-temporal_path = REPORTS_DIR / "model_validation" / "temporal_split_comparison.csv"
-fairness_csv_path = (
-    REPORTS_DIR / "fairness_reports" / "application_model" / "xgboost_application_fairness_metrics.csv"
-)
-fairness_json_path = (
-    REPORTS_DIR / "fairness_reports" / "application_model" / "xgboost_application_fairness_metrics.json"
-)
-mitigation_path = (
-    REPORTS_DIR
-    / "fairness_reports"
-    / "application_model"
-    / "xgboost_application_fairness_accuracy_tradeoff.csv"
-)
-leakage_path = REPORTS_DIR / "leakage_audit" / "leakage_audit_summary.json"
-counterfactual_path = (
-    REPORTS_DIR
-    / "explainability_reports"
-    / "application_model"
-    / "xgboost_application_counterfactuals.json"
-)
-shap_summary_path = (
-    REPORTS_DIR
-    / "explainability_reports"
-    / "application_model"
-    / "xgboost_application_shap_summary.png"
-)
-shap_local_path = (
-    REPORTS_DIR
-    / "explainability_reports"
-    / "application_model"
-    / "xgboost_application_shap_local.png"
-)
+artifact_paths = get_application_artifact_paths()
+performance_path = artifact_paths["performance"]
+temporal_path = artifact_paths["temporal"]
+fairness_csv_path = artifact_paths["fairness_csv"]
+fairness_json_path = artifact_paths["fairness_json"]
+mitigation_path = artifact_paths["mitigation"]
+leakage_path = artifact_paths["leakage"]
+counterfactual_path = artifact_paths["counterfactual"]
+shap_summary_path = artifact_paths["shap_summary"]
+shap_local_path = artifact_paths["shap_local"]
 
-tab_overview, tab_prediction, tab_performance, tab_explainability, tab_fairness, tab_counterfactual, tab_leakage = (
-    st.tabs(
-        [
-            "Project Overview",
-            "Applicant Risk Prediction",
-            "Model Performance",
-            "Explainability",
-            "Fairness Analysis",
-            "Counterfactual Guidance",
-            "Leakage Audit",
-        ]
-    )
+(
+    tab_overview,
+    tab_prediction,
+    tab_performance,
+    tab_explainability,
+    tab_fairness,
+    tab_counterfactual,
+    tab_scorecard,
+    tab_leakage,
+) = st.tabs(
+    [
+        "Project Overview",
+        "Applicant Risk Prediction",
+        "Model Performance",
+        "Explainability",
+        "Fairness Analysis",
+        "Counterfactual Guidance",
+        "Applicant Risk Scorecard Report",
+        "Leakage Audit",
+    ]
 )
 
 with tab_overview:
@@ -173,7 +166,9 @@ with tab_prediction:
     st.subheader("Applicant Risk Prediction")
     model, model_path = ensure_model("XGBoost")
     feature_table = get_feature_table()
-    defaults = build_defaults(feature_table)
+    presets = build_applicant_presets(feature_table)
+    selected_preset_name = st.selectbox("Demo Applicant Preset", options=list(presets))
+    selected_preset = presets[selected_preset_name]
     st.write("Input applicant details to score default risk using only application-time features.")
     st.caption(
         "Post-loan behavioral fields such as missed payments, salary-drop flags, and spending "
@@ -183,70 +178,84 @@ with tab_prediction:
 
     with applicant_col:
         st.markdown("**Applicant Details**")
-        age = st.number_input("Age", min_value=18, value=int(defaults["Age"]), step=1)
+        age = st.number_input("Age", min_value=18, value=int(selected_preset["Age"]), step=1)
+        gender_options = sorted(feature_table["Gender"].dropna().astype(str).unique().tolist())
         gender = st.selectbox(
             "Gender",
-            options=sorted(feature_table["Gender"].dropna().astype(str).unique().tolist()),
+            options=gender_options,
+            index=option_index(gender_options, str(selected_preset["Gender"])),
+        )
+        nationality_options = sorted(
+            feature_table["Nationality"].dropna().astype(str).unique().tolist()
         )
         nationality = st.selectbox(
             "Nationality",
-            options=sorted(feature_table["Nationality"].dropna().astype(str).unique().tolist()),
+            options=nationality_options,
+            index=option_index(nationality_options, str(selected_preset["Nationality"])),
         )
+        city_options = sorted(feature_table["City"].dropna().astype(str).unique().tolist())
         city = st.selectbox(
             "City",
-            options=sorted(feature_table["City"].dropna().astype(str).unique().tolist()),
+            options=city_options,
+            index=option_index(city_options, str(selected_preset["City"])),
+        )
+        employment_options = sorted(
+            feature_table["EmploymentStatus"].dropna().astype(str).unique().tolist()
         )
         employment_status = st.selectbox(
             "EmploymentStatus",
-            options=sorted(feature_table["EmploymentStatus"].dropna().astype(str).unique().tolist()),
+            options=employment_options,
+            index=option_index(employment_options, str(selected_preset["EmploymentStatus"])),
         )
         annual_income = st.number_input(
             "AnnualIncome_AED",
             min_value=0.0,
-            value=float(defaults["AnnualIncome_AED"]),
+            value=float(selected_preset["AnnualIncome_AED"]),
         )
         other_obligations = st.number_input(
             "OtherObligations_AED",
             min_value=0.0,
-            value=float(defaults["OtherObligations_AED"]),
+            value=float(selected_preset["OtherObligations_AED"]),
         )
         bureau_score = st.number_input(
             "BureauScore",
             min_value=0.0,
-            value=float(defaults["BureauScore"]),
+            value=float(selected_preset["BureauScore"]),
         )
         unemployment_pct = st.number_input(
             "Unemployment_pct",
             min_value=0.0,
-            value=float(defaults["Unemployment_pct"]),
+            value=float(selected_preset["Unemployment_pct"]),
         )
         inflation_pct = st.number_input(
             "Inflation_pct",
             min_value=0.0,
-            value=float(defaults["Inflation_pct"]),
+            value=float(selected_preset["Inflation_pct"]),
         )
 
     with loan_col:
         st.markdown("**Loan Details**")
+        loan_type_options = sorted(feature_table["LoanType"].dropna().astype(str).unique().tolist())
         loan_type = st.selectbox(
             "LoanType",
-            options=sorted(feature_table["LoanType"].dropna().astype(str).unique().tolist()),
+            options=loan_type_options,
+            index=option_index(loan_type_options, str(selected_preset["LoanType"])),
         )
         loan_amount = st.number_input(
             "LoanAmount_AED",
             min_value=0.0,
-            value=float(defaults["LoanAmount_AED"]),
+            value=float(selected_preset["LoanAmount_AED"]),
         )
         loan_tenure = st.number_input(
             "LoanTenureMonths",
             min_value=1,
-            value=int(defaults["LoanTenureMonths"]),
+            value=int(selected_preset["LoanTenureMonths"]),
             step=1,
         )
         interest_rate = st.number_input(
             "InterestRate_pct",
             min_value=0.0,
-            value=float(defaults["InterestRate_pct"]),
+            value=float(selected_preset["InterestRate_pct"]),
         )
         st.info(
             "Derived fields such as EMI and loan burden ratios are computed internally from these inputs."
@@ -288,7 +297,9 @@ with tab_prediction:
         try:
             shap_result = compute_local_shap_analysis(model, applicant_df, feature_table)
         except Exception as exc:
-            shap_warning = f"Local SHAP explanation could not be generated for this applicant: {exc}"
+            shap_warning = (
+                f"Local SHAP explanation could not be generated for this applicant: {exc}"
+            )
 
         positive_drivers = shap_result["positive_drivers"] if shap_result else []
         negative_drivers = shap_result["negative_drivers"] if shap_result else []
@@ -302,6 +313,7 @@ with tab_prediction:
 
         st.session_state["current_prediction_result"] = {
             "probability": probability,
+            "threshold": DEFAULT_DECISION_THRESHOLD,
             "risk_band": band,
             "recommendation": recommendation,
             "applicant_df": applicant_df,
@@ -334,9 +346,7 @@ with tab_prediction:
             st.write("Top factors increasing default risk")
             if prediction_result["positive_drivers"]:
                 for idx, driver in enumerate(prediction_result["positive_drivers"][:3], start=1):
-                    st.write(
-                        f"{idx}. {driver['display_name']} ({driver['shap_value']:+.4f})"
-                    )
+                    st.write(f"{idx}. {driver['display_name']} ({driver['shap_value']:+.4f})")
                     st.caption(driver["interpretation"])
             else:
                 st.warning("No positive local SHAP drivers were recovered for this applicant.")
@@ -344,9 +354,7 @@ with tab_prediction:
             st.write("Top factors reducing default risk")
             if prediction_result["negative_drivers"]:
                 for idx, driver in enumerate(prediction_result["negative_drivers"][:3], start=1):
-                    st.write(
-                        f"{idx}. {driver['display_name']} ({driver['shap_value']:+.4f})"
-                    )
+                    st.write(f"{idx}. {driver['display_name']} ({driver['shap_value']:+.4f})")
                     st.caption(driver["interpretation"])
             else:
                 st.warning("No negative local SHAP drivers were recovered for this applicant.")
@@ -392,7 +400,9 @@ with tab_performance:
 with tab_explainability:
     st.subheader("SHAP-Based Explainability")
     if shap_summary_path.exists():
-        st.image(str(shap_summary_path), caption="Global SHAP summary for the final application model")
+        st.image(
+            str(shap_summary_path), caption="Global SHAP summary for the final application model"
+        )
     else:
         show_warning_if_missing("SHAP summary image", shap_summary_path)
 
@@ -416,7 +426,9 @@ with tab_fairness:
     if fairness_df is None or fairness_json is None:
         show_warning_if_missing("Fairness report", fairness_json_path)
     else:
-        st.write(f"Protected attribute used in the saved report: `{fairness_json['protected_attribute']}`")
+        st.write(
+            f"Protected attribute used in the saved report: `{fairness_json['protected_attribute']}`"
+        )
         st.dataframe(fairness_df, width="stretch")
         fairness_plot = fairness_df.T.reset_index()
         fairness_plot.columns = ["metric", "value"]
@@ -456,6 +468,60 @@ with tab_counterfactual:
                 "higher bureau score and lower loan burden are the most direct levers for reducing risk."
             )
 
+with tab_scorecard:
+    st.subheader("Applicant Risk Scorecard Report")
+    prediction_result = st.session_state.get("current_prediction_result")
+    if not prediction_result:
+        st.info(
+            "Run a prediction from the Applicant Risk Prediction tab to generate a scorecard-style applicant report."
+        )
+    else:
+        report = build_applicant_risk_report(
+            probability=prediction_result["probability"],
+            positive_drivers=prediction_result["positive_drivers"],
+            negative_drivers=prediction_result["negative_drivers"],
+            guidance=prediction_result["guidance"],
+            threshold=prediction_result.get("threshold", DEFAULT_DECISION_THRESHOLD),
+            shap_warning=prediction_result.get("shap_warning"),
+        )
+        metric_a, metric_b, metric_c = st.columns(3)
+        metric_a.metric("Default Probability", f"{report['probability']:.2%}")
+        metric_b.metric("Decision Threshold", f"{report['threshold']:.0%}")
+        metric_c.metric("Risk Band", report["risk_band"])
+        st.write(report["interpretation"])
+        st.markdown("**Top SHAP risk-increasing drivers**")
+        if prediction_result["positive_drivers"]:
+            for driver in prediction_result["positive_drivers"][:3]:
+                st.write(f"- {driver['display_name']}: {driver['shap_value']:+.4f}")
+                st.caption(driver["interpretation"])
+        else:
+            st.warning("Risk-increasing SHAP drivers are unavailable for this applicant.")
+
+        st.markdown("**Top SHAP risk-reducing drivers**")
+        if prediction_result["negative_drivers"]:
+            for driver in prediction_result["negative_drivers"][:3]:
+                st.write(f"- {driver['display_name']}: {driver['shap_value']:+.4f}")
+                st.caption(driver["interpretation"])
+        else:
+            st.warning("Risk-reducing SHAP drivers are unavailable for this applicant.")
+
+        st.markdown("**Counterfactual guidance**")
+        for item in prediction_result["guidance"]:
+            st.write(f"- {item}")
+        st.info(
+            "Fairness caveat: group-level fairness metrics do not prove the model is bias-free for every applicant."
+        )
+        st.caption(
+            "Leakage-safe feature note: the report uses the application-time model and excludes post-loan behavioral inputs. "
+            "This is not a production lending decision engine or a calibrated regulatory credit scorecard."
+        )
+        st.download_button(
+            "Download Markdown Report",
+            data=report["markdown"],
+            file_name="applicant_risk_scorecard_report.md",
+            mime="text/markdown",
+        )
+
 with tab_leakage:
     st.subheader("Leakage Audit")
     leakage_summary = load_json(leakage_path)
@@ -467,7 +533,9 @@ with tab_leakage:
             "face value. The audit found no target-column leakage or train/test overlap, but it did "
             "find that post-loan behavioral features created hindsight leakage for the application-time use case."
         )
-        st.write("Target shuffle ROC-AUC:", round(leakage_summary["target_shuffle_test"]["roc_auc"], 4))
+        st.write(
+            "Target shuffle ROC-AUC:", round(leakage_summary["target_shuffle_test"]["roc_auc"], 4)
+        )
         st.write("Key suspicious features:")
         for item in leakage_summary["suspicious_features"][:10]:
             st.write(f"- {item}")

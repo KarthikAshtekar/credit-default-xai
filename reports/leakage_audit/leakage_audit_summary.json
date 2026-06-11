@@ -1,5 +1,5 @@
 {
-  "dataset": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\data\\raw\\Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx",
+  "dataset": "data/raw/Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx",
   "row_count": 10000,
   "feature_count": 32,
   "top_correlations": [

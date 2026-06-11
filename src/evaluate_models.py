@@ -35,7 +35,14 @@ from .data_preprocessing import (
     prepare_modeling_table,
 )
 from .model_builders import build_logistic_estimator, build_xgboost_estimator
-from .utils import REPORTS_DIR, ensure_directories, load_dataset_auto, save_json, save_model
+from .utils import (
+    REPORTS_DIR,
+    ensure_directories,
+    load_dataset_auto,
+    project_relative_path,
+    save_json,
+    save_model,
+)
 
 
 def evaluate_classification(y_true, y_pred, y_proba) -> Dict[str, float]:
@@ -48,7 +55,9 @@ def evaluate_classification(y_true, y_pred, y_proba) -> Dict[str, float]:
     }
 
 
-def plot_confusion_matrix(y_true, y_pred, model_name: str, out_dir: Path | None = None) -> np.ndarray:
+def plot_confusion_matrix(
+    y_true, y_pred, model_name: str, out_dir: Path | None = None
+) -> np.ndarray:
     cm = confusion_matrix(y_true, y_pred)
     fig, ax = plt.subplots(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
@@ -65,7 +74,9 @@ def plot_confusion_matrix(y_true, y_pred, model_name: str, out_dir: Path | None 
     return cm
 
 
-def fit_pipeline(estimator, X_train: pd.DataFrame, y_train: pd.Series, sample_weight=None) -> Pipeline:
+def fit_pipeline(
+    estimator, X_train: pd.DataFrame, y_train: pd.Series, sample_weight=None
+) -> Pipeline:
     preprocessor = build_preprocessor(X_train)
     pipeline = Pipeline(
         steps=[
@@ -119,7 +130,7 @@ def run_model_experiment(
         "feature_columns": split.feature_columns,
         "train_indices": split.train_indices.tolist(),
         "test_indices": split.test_indices.tolist(),
-        "model_path": str(model_output_path) if model_output_path is not None else None,
+        "model_path": project_relative_path(model_output_path),
         "pipeline": pipeline,
     }
 
@@ -314,10 +325,7 @@ def run() -> pd.DataFrame:
     standard_results = _standard_experiments(df_raw)
     standard_df = _flatten_results(standard_results)
 
-    clean_feature_metrics = {
-        result["model_name"]: result["metrics"]
-        for result in standard_results
-    }
+    clean_feature_metrics = {result["model_name"]: result["metrics"] for result in standard_results}
     compare_model_metrics(clean_feature_metrics)
 
     application_results = [
@@ -327,7 +335,9 @@ def run() -> pd.DataFrame:
         result for result in standard_results if result["feature_set"] == FEATURE_SET_BEHAVIORAL
     ]
     full_results = [
-        result for result in standard_results if result["feature_set"] == FEATURE_SET_FULL_DIAGNOSTIC
+        result
+        for result in standard_results
+        if result["feature_set"] == FEATURE_SET_FULL_DIAGNOSTIC
     ]
 
     model_validation_dir = REPORTS_DIR / "model_validation"

@@ -33,6 +33,7 @@ pytest -q
 - Keep notebook outputs minimal before commit.
 - Move reusable logic into `src/`.
 - Use notebooks for analysis/storytelling, not core business logic.
+- Core CI excludes notebooks from Ruff checks. Use `nbqa ruff notebooks` separately when notebook linting is needed.
 
 ## PR Requirements
 - Clear title and description

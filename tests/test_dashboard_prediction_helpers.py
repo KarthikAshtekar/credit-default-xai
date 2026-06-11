@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import math
 
-from dashboard.common import get_feature_table
+from dashboard.common import get_application_artifact_paths, get_feature_table
 from dashboard.prediction_helpers import (
     EXCLUDED_USER_INPUT_FIELDS,
     USER_INPUT_FIELDS,
     build_applicant_model_row,
+    build_applicant_presets,
     build_defaults,
     calculate_emi,
+    risk_band,
 )
 
 
@@ -47,7 +49,9 @@ def test_build_applicant_input_row_matches_application_schema() -> None:
 
 def test_derived_ratios_are_computed_internally() -> None:
     feature_table = get_feature_table()
-    applicant_df, computed = build_applicant_model_row(_sample_user_input(feature_table), feature_table)
+    applicant_df, computed = build_applicant_model_row(
+        _sample_user_input(feature_table), feature_table
+    )
 
     assert computed["EMI_AED"] > 0
     assert math.isclose(computed["LoanToAnnualIncome"], 0.5, rel_tol=1e-9)
@@ -80,3 +84,41 @@ def test_dashboard_excludes_post_loan_behavioral_fields_from_user_input() -> Non
         "StdMonthlyDebit_AED",
     }
     assert disallowed_fields.isdisjoint(USER_INPUT_FIELDS)
+
+
+def test_applicant_presets_use_only_user_input_fields() -> None:
+    feature_table = get_feature_table()
+    presets = build_applicant_presets(feature_table)
+
+    assert {
+        "Low-risk salaried applicant",
+        "High-burden applicant",
+        "Borderline / medium-risk applicant",
+    }.issubset(presets)
+    for preset in presets.values():
+        assert set(preset) == set(USER_INPUT_FIELDS)
+        assert set(preset).isdisjoint(EXCLUDED_USER_INPUT_FIELDS)
+
+
+def test_risk_band_assignment() -> None:
+    assert risk_band(0.29) == "Low Risk"
+    assert risk_band(0.30) == "Medium Risk"
+    assert risk_band(0.60) == "Medium Risk"
+    assert risk_band(0.61) == "High Risk"
+
+
+def test_application_artifact_paths_resolve_to_reports_directory() -> None:
+    paths = get_application_artifact_paths()
+
+    assert (
+        paths["performance"]
+        .as_posix()
+        .endswith("reports/model_validation/clean_feature_model_comparison.csv")
+    )
+    assert (
+        paths["shap_summary"]
+        .as_posix()
+        .endswith(
+            "reports/explainability_reports/application_model/xgboost_application_shap_summary.png"
+        )
+    )
