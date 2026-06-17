@@ -1,7 +1,7 @@
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-exclude = [".venv", "models", "reports"]
+exclude = [".venv", "models", "notebooks", "reports"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
@@ -14,3 +14,4 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]

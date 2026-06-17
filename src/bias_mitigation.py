@@ -25,6 +25,7 @@ from .utils import (
     infer_protected_attribute,
     load_dataset_auto,
     load_model,
+    project_relative_path,
     save_json,
 )
 
@@ -186,7 +187,7 @@ def run(model_path: Path | None = None) -> Dict:
     fair_post = _approval_fairness(y_test.values, y_pred_post, s_test.values)
 
     summary = {
-        "model": str(model_path),
+        "model": project_relative_path(model_path),
         "protected_attribute": protected_col,
         "baseline": {"performance": perf_base, "fairness": fair_base},
         "reweighing": {"performance": perf_rw, "fairness": fair_rw},

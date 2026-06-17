@@ -261,7 +261,9 @@ def get_dataset_split(
         )
     elif split_strategy == "temporal":
         if "LoanStartDate" not in df.columns:
-            raise KeyError("Temporal split requested but LoanStartDate is missing from the raw dataset.")
+            raise KeyError(
+                "Temporal split requested but LoanStartDate is missing from the raw dataset."
+            )
 
         dates = pd.to_datetime(df["LoanStartDate"], errors="coerce")
         valid_mask = dates.notna()

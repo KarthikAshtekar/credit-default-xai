@@ -14,7 +14,14 @@ from .data_preprocessing import (
     TARGET_COL,
     get_dataset_split,
 )
-from .utils import MODELS_DIR, REPORTS_DIR, ensure_directories, load_dataset_auto, load_model
+from .utils import (
+    MODELS_DIR,
+    REPORTS_DIR,
+    ensure_directories,
+    load_dataset_auto,
+    load_model,
+    project_relative_path,
+)
 
 
 def _model_context(model_path: Path) -> tuple[str, Path]:
@@ -22,7 +29,10 @@ def _model_context(model_path: Path) -> tuple[str, Path]:
     if "behavioral" in stem:
         return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "explainability_reports" / "behavioral_model"
     if "full_diagnostic" in stem:
-        return FEATURE_SET_FULL_DIAGNOSTIC, REPORTS_DIR / "explainability_reports" / "full_diagnostic"
+        return (
+            FEATURE_SET_FULL_DIAGNOSTIC,
+            REPORTS_DIR / "explainability_reports" / "full_diagnostic",
+        )
     return FEATURE_SET_APPLICATION, REPORTS_DIR / "explainability_reports" / "application_model"
 
 
@@ -67,8 +77,8 @@ def generate_lime_explanation(model_path: Path, instance_index: int = 0) -> dict
     plt.close(fig)
 
     return {
-        "model": str(model_path),
-        "lime_plot": str(out_path),
+        "model": project_relative_path(model_path),
+        "lime_plot": project_relative_path(out_path),
         "instance_index": idx,
     }
 

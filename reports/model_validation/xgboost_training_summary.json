@@ -1,8 +1,8 @@
 {
-  "dataset": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\data\\raw\\Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx",
+  "dataset": "data/raw/Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx",
   "models": {
     "xgboost_application": {
-      "model_path": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\models\\xgboost_application.pkl",
+      "model_path": "models/xgboost_application.pkl",
       "metrics": {
         "accuracy": 0.7105,
         "precision": 0.6579457364341085,
@@ -12,7 +12,7 @@
       }
     },
     "xgboost_behavioral": {
-      "model_path": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\models\\xgboost_behavioral.pkl",
+      "model_path": "models/xgboost_behavioral.pkl",
       "metrics": {
         "accuracy": 1.0,
         "precision": 1.0,
@@ -22,7 +22,7 @@
       }
     },
     "xgboost_full_diagnostic": {
-      "model_path": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\models\\xgboost_full_diagnostic.pkl",
+      "model_path": "models/xgboost_full_diagnostic.pkl",
       "metrics": {
         "accuracy": 0.9995,
         "precision": 0.9988962472406181,

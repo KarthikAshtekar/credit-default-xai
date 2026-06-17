@@ -1,5 +1,5 @@
 {
-  "model": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\models\\xgboost_application.pkl",
+  "model": "models/xgboost_application.pkl",
   "feature_set": "application",
   "protected_attribute": "Gender",
   "approval_threshold": 0.5,

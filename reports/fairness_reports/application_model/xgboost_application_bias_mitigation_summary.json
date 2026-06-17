@@ -1,5 +1,5 @@
 {
-  "model": "D:\\PGDBA\\Projects\\Credit Default Risk\\credit-default-xai\\models\\xgboost_application.pkl",
+  "model": "models/xgboost_application.pkl",
   "protected_attribute": "Gender",
   "baseline": {
     "performance": {
@@ -33,17 +33,17 @@
   },
   "fairlearn_postprocessing": {
     "performance": {
-      "accuracy": 0.701,
-      "precision": 0.6791131855309218,
+      "accuracy": 0.7015,
+      "precision": 0.6799065420560748,
       "recall": 0.6430939226519337,
-      "f1": 0.6606129398410897,
-      "roc_auc": 0.695976185070259
+      "f1": 0.6609880749574105,
+      "roc_auc": 0.6964328060748253
     },
     "fairness": {
-      "demographic_parity_difference": 0.004429039861358786,
-      "equalized_odds_difference": 0.020509037994286272,
-      "equal_opportunity_difference": 0.020509037994286272,
-      "disparate_impact_ratio": 0.9922801525493449
+      "demographic_parity_difference": 0.007432066888601985,
+      "equalized_odds_difference": 0.02602929004352117,
+      "equal_opportunity_difference": 0.02602929004352117,
+      "disparate_impact_ratio": 0.9870909918328638
     }
   }
 }

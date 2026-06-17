@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+REPORTS_DIR = ROOT / "reports"
+
 from src.data_preprocessing import (  # noqa: E402
     FEATURE_SET_APPLICATION,
     TARGET_COL,
@@ -44,3 +46,35 @@ def get_feature_table() -> pd.DataFrame:
     prepared = prepare_modeling_table(raw, target_col=TARGET_COL)
     feature_columns = get_feature_columns(prepared, feature_set=FEATURE_SET_APPLICATION)
     return prepared[feature_columns].copy()
+
+
+def get_application_artifact_paths() -> dict[str, Path]:
+    return {
+        "performance": REPORTS_DIR / "model_validation" / "clean_feature_model_comparison.csv",
+        "temporal": REPORTS_DIR / "model_validation" / "temporal_split_comparison.csv",
+        "fairness_csv": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "xgboost_application_fairness_metrics.csv",
+        "fairness_json": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "xgboost_application_fairness_metrics.json",
+        "mitigation": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "xgboost_application_fairness_accuracy_tradeoff.csv",
+        "leakage": REPORTS_DIR / "leakage_audit" / "leakage_audit_summary.json",
+        "counterfactual": REPORTS_DIR
+        / "explainability_reports"
+        / "application_model"
+        / "xgboost_application_counterfactuals.json",
+        "shap_summary": REPORTS_DIR
+        / "explainability_reports"
+        / "application_model"
+        / "xgboost_application_shap_summary.png",
+        "shap_local": REPORTS_DIR
+        / "explainability_reports"
+        / "application_model"
+        / "xgboost_application_shap_local.png",
+    }
