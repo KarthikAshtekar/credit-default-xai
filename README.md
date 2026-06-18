@@ -182,6 +182,38 @@ The dashboard prediction form:
 - intentionally excludes post-loan behavioral features from the application model
 - includes a scorecard-style applicant report, which is not a calibrated regulatory credit scorecard
 
+## Dashboard Preview
+
+### Project Overview
+
+![Project Overview](assets/dashboard/overview.png)
+
+### Applicant Risk Prediction
+
+![Applicant Risk Prediction](assets/dashboard/prediction.png)
+
+### Applicant-Level SHAP Explanation
+
+![Applicant SHAP](assets/dashboard/applicant_shap.png)
+
+### Validated Model Performance
+
+![Model Performance](assets/dashboard/model_performance.png)
+
+### Fairness Analysis
+
+![Fairness Analysis](assets/dashboard/fairness_analysis.png)
+
+### Applicant Risk Scorecard Report
+
+![Applicant Risk Scorecard Report](assets/dashboard/scorecard_report.png)
+
+### Leakage Audit
+
+![Leakage Audit](assets/dashboard/leakage_audit.png)
+
+Dashboard screenshots should be saved under `assets/dashboard/` using the filenames above.
+
 ## How To Run
 Install dependencies:
 

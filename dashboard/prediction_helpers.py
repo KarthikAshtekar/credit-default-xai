@@ -269,11 +269,14 @@ def interpret_driver(
     reference_table: pd.DataFrame,
 ) -> str:
     raw_feature, readable_name = humanize_feature_name(transformed_name)
-    direction_text = "higher" if shap_value > 0 else "lower"
+    risk_direction = "higher" if shap_value > 0 else "lower"
 
     if raw_feature in CATEGORICAL_FIELDS and transformed_name.startswith("cat__"):
-        current_value = applicant_df.iloc[0].get(raw_feature, "Unknown")
-        return f"Current {FEATURE_LABELS.get(raw_feature, raw_feature).lower()} is {current_value}, which pushes predicted risk {direction_text}."
+        feature_label = FEATURE_LABELS.get(raw_feature, raw_feature).lower()
+        return (
+            f"For this applicant, the {feature_label} feature contributes toward "
+            f"{risk_direction} predicted risk in this fitted model."
+        )
 
     current_value = applicant_df.iloc[0].get(raw_feature)
     if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(
@@ -282,16 +285,54 @@ def interpret_driver(
         median_value = float(reference_table[raw_feature].median())
         relation = "above" if float(current_value) > median_value else "below"
         if raw_feature == "BureauScore":
-            return f"Bureau score is {relation} the portfolio median, pushing predicted risk {direction_text}."
+            if shap_value > 0 and relation == "below":
+                return (
+                    "Lower bureau score contributes toward higher predicted risk in this "
+                    "fitted model."
+                )
+            if shap_value < 0 and relation == "above":
+                return (
+                    "Higher bureau score contributes toward lower predicted risk in this "
+                    "fitted model."
+                )
+            return (
+                "For this applicant, the bureau-score feature contributes toward "
+                f"{risk_direction} predicted risk in this fitted model."
+            )
         if raw_feature in {"LoanToAnnualIncome", "LoanBurdenRatio"}:
-            return f"Loan burden relative to income is {relation} the portfolio median, pushing predicted risk {direction_text}."
+            return (
+                "For this applicant, the loan-to-income feature contributes toward "
+                f"{risk_direction} predicted risk in this fitted model."
+            )
         if raw_feature in {"OtherObligations_AED", "ObligationsToIncome"}:
-            return f"Existing obligations are {relation} the portfolio median, pushing predicted risk {direction_text}."
+            return (
+                "For this applicant, the existing-obligations feature contributes toward "
+                f"{risk_direction} predicted risk in this fitted model."
+            )
         if raw_feature in {"EMI_AED", "EMIToIncome"}:
-            return f"Repayment burden is {relation} the portfolio median, pushing predicted risk {direction_text}."
-        return f"{readable_name} is {relation} the portfolio median, pushing predicted risk {direction_text}."
+            if shap_value > 0 and relation == "above":
+                return (
+                    "Higher repayment burden contributes toward higher predicted risk in "
+                    "this fitted model."
+                )
+            return (
+                "For this applicant, the repayment-burden feature contributes toward "
+                f"{risk_direction} predicted risk in this fitted model."
+            )
+        if raw_feature == "InterestRate_pct" and shap_value < 0:
+            return (
+                "For this applicant, the interest-rate feature contributes slightly toward "
+                "lower predicted risk in this fitted model."
+            )
+        return (
+            f"For this applicant, the {readable_name.lower()} feature contributes toward "
+            f"{risk_direction} predicted risk in this fitted model."
+        )
 
-    return f"{readable_name} contributes to {direction_text} predicted default risk."
+    return (
+        f"For this fitted model, {readable_name.lower()} contributes toward "
+        f"{risk_direction} predicted risk."
+    )
 
 
 def driver_reason_text(
@@ -301,10 +342,13 @@ def driver_reason_text(
     reference_table: pd.DataFrame,
 ) -> str:
     raw_feature, readable_name = humanize_feature_name(transformed_name)
+    contribution = "risk-increasing" if shap_value > 0 else "risk-reducing"
 
     if raw_feature in CATEGORICAL_FIELDS and transformed_name.startswith("cat__"):
-        current_value = applicant_df.iloc[0].get(raw_feature, "Unknown")
-        return f"{FEATURE_LABELS.get(raw_feature, raw_feature).lower()} is {current_value}"
+        feature_label = FEATURE_LABELS.get(raw_feature, raw_feature).lower()
+        return (
+            f"the fitted model assigns a {contribution} contribution to the {feature_label} feature"
+        )
 
     current_value = applicant_df.iloc[0].get(raw_feature)
     if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(
@@ -313,68 +357,55 @@ def driver_reason_text(
         median_value = float(reference_table[raw_feature].median())
         relation = "above" if float(current_value) > median_value else "below"
         if raw_feature == "BureauScore":
-            if shap_value > 0:
-                return (
-                    "bureau score is relatively weak"
-                    if relation == "below"
-                    else "bureau score remains a notable model driver"
-                )
-            return (
-                "bureau score is relatively strong"
-                if relation == "above"
-                else "bureau score helps reduce modeled risk"
-            )
+            if shap_value > 0 and relation == "below":
+                return "lower bureau score contributes toward higher risk in the fitted model"
+            if shap_value < 0 and relation == "above":
+                return "higher bureau score contributes toward lower risk in the fitted model"
+            return f"the fitted model assigns a {contribution} contribution to bureau score"
         if raw_feature in {"LoanToAnnualIncome", "LoanAmount_AED", "EMI_AED", "EMIToIncome"}:
-            if shap_value > 0:
-                return (
-                    "loan burden is high relative to income"
-                    if relation == "above"
-                    else "loan burden remains a notable model driver"
-                )
+            if shap_value > 0 and relation == "above":
+                return "higher repayment burden contributes toward higher risk in the fitted model"
+            if shap_value < 0 and relation == "below":
+                return "lower repayment burden contributes toward lower risk in the fitted model"
             return (
-                "loan burden is manageable relative to income"
-                if relation == "below"
-                else "loan burden helps reduce modeled risk"
+                f"the fitted model assigns a {contribution} contribution to the "
+                "repayment-burden feature"
             )
         if raw_feature in {"OtherObligations_AED", "ObligationsToIncome"}:
-            if shap_value > 0:
+            if shap_value > 0 and relation == "above":
                 return (
-                    "existing obligations are high"
-                    if relation == "above"
-                    else "existing obligations remain a notable model driver"
+                    "higher existing obligations contribute toward higher risk in the fitted model"
                 )
+            if shap_value < 0 and relation == "below":
+                return "lower existing obligations contribute toward lower risk in the fitted model"
             return (
-                "existing obligations are manageable"
-                if relation == "below"
-                else "existing obligations help reduce modeled risk"
+                f"the fitted model assigns a {contribution} contribution to the "
+                "existing-obligations feature"
             )
         if raw_feature == "InterestRate_pct":
-            if shap_value > 0:
-                return (
-                    "interest rate is relatively high"
-                    if relation == "above"
-                    else "interest rate remains a notable model driver"
-                )
+            qualifier = "slightly " if shap_value < 0 else ""
             return (
-                "interest rate is comparatively moderate"
-                if relation == "below"
-                else "interest rate helps reduce modeled risk"
+                f"the fitted model assigns a {qualifier}{contribution} contribution to the "
+                "interest-rate feature"
             )
         if raw_feature == "AnnualIncome_AED":
-            if shap_value > 0:
-                return (
-                    "annual income is relatively limited"
-                    if relation == "below"
-                    else "annual income is a notable model driver"
-                )
+            if shap_value > 0 and relation == "below":
+                return "lower annual income contributes toward higher risk in the fitted model"
+            if shap_value < 0 and relation == "above":
+                return "higher annual income contributes toward lower risk in the fitted model"
             return (
-                "annual income is relatively strong"
-                if relation == "above"
-                else "income profile helps reduce modeled risk"
+                f"the fitted model assigns a {contribution} contribution to the "
+                "annual-income feature"
             )
-        return f"{readable_name.lower()} is a notable model driver"
+        return (
+            f"the fitted model assigns a {contribution} contribution to the "
+            f"{readable_name.lower()} feature"
+        )
 
-    return readable_name.lower()
+    return (
+        f"the fitted model assigns a {contribution} contribution to the "
+        f"{readable_name.lower()} feature"
+    )
 
 
 def compute_local_shap_analysis(

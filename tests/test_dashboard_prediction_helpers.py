@@ -12,6 +12,8 @@ from dashboard.prediction_helpers import (
     build_applicant_presets,
     build_defaults,
     calculate_emi,
+    driver_reason_text,
+    interpret_driver,
     risk_band,
 )
 
@@ -160,6 +162,40 @@ def test_risk_band_assignment() -> None:
     assert risk_band(0.30) == "Medium Risk"
     assert risk_band(0.60) == "Medium Risk"
     assert risk_band(0.61) == "High Risk"
+
+
+def test_driver_interpretation_is_model_specific_and_economically_cautious() -> None:
+    feature_table = _reference_table()
+    applicant_df, _ = build_applicant_model_row(_sample_user_input(feature_table), feature_table)
+
+    interest_rate_text = interpret_driver(
+        "num__InterestRate_pct",
+        -0.05,
+        applicant_df,
+        feature_table,
+    )
+    loan_to_income_text = interpret_driver(
+        "num__LoanToAnnualIncome",
+        -0.08,
+        applicant_df,
+        feature_table,
+    )
+
+    assert "interest-rate feature contributes slightly toward lower predicted risk" in (
+        interest_rate_text
+    )
+    assert "loan-to-income feature contributes toward lower predicted risk" in (loan_to_income_text)
+    assert "pushing predicted risk" not in interest_rate_text
+    assert "fitted model" in interest_rate_text
+
+    interest_rate_reason = driver_reason_text(
+        "num__InterestRate_pct",
+        -0.05,
+        applicant_df,
+        feature_table,
+    )
+    assert "slightly risk-reducing contribution" in interest_rate_reason
+    assert "helps reduce modeled risk" not in interest_rate_reason
 
 
 def test_application_artifact_paths_resolve_to_reports_directory() -> None:
