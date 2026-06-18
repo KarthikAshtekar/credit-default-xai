@@ -1,5 +1,7 @@
 """Presentation-ready Streamlit dashboard for the validated application model."""
 
+# ruff: noqa: E402
+
 from __future__ import annotations
 
 import json
@@ -14,35 +16,26 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-try:
-    from .common import ensure_model, get_application_artifact_paths, get_feature_table
-    from .prediction_helpers import (
-        EXCLUDED_USER_INPUT_FIELDS,
-        build_applicant_model_row,
-        build_applicant_presets,
-        build_local_shap_figure,
-        compute_local_shap_analysis,
-        decision_support_recommendation,
-        generate_counterfactual_guidance,
-        generate_plain_english_explanation,
-        risk_band,
-    )
-    from .report_utils import DEFAULT_DECISION_THRESHOLD, build_applicant_risk_report
-except ImportError:
-    from common import ensure_model, get_application_artifact_paths, get_feature_table
-    from prediction_helpers import (
-        EXCLUDED_USER_INPUT_FIELDS,
-        build_applicant_model_row,
-        build_applicant_presets,
-        build_local_shap_figure,
-        compute_local_shap_analysis,
-        decision_support_recommendation,
-        generate_counterfactual_guidance,
-        generate_plain_english_explanation,
-        risk_band,
-    )
-    from report_utils import DEFAULT_DECISION_THRESHOLD, build_applicant_risk_report
-
+from dashboard.common import (
+    ensure_model,
+    get_application_artifact_paths,
+    get_feature_table,
+)
+from dashboard.prediction_helpers import (
+    EXCLUDED_USER_INPUT_FIELDS,
+    build_applicant_model_row,
+    build_applicant_presets,
+    build_local_shap_figure,
+    compute_local_shap_analysis,
+    decision_support_recommendation,
+    generate_counterfactual_guidance,
+    generate_plain_english_explanation,
+    risk_band,
+)
+from dashboard.report_utils import (
+    DEFAULT_DECISION_THRESHOLD,
+    build_applicant_risk_report,
+)
 
 DATASET_SOURCE_OPTIONS = [
     "Local Case Dataset",
@@ -328,10 +321,10 @@ with tab_prediction:
 
     prediction_result = st.session_state.get("current_prediction_result")
     if prediction_result:
-        metric_a, metric_b, metric_c = st.columns(3)
+        metric_a, metric_b = st.columns(2)
         metric_a.metric("Default Probability", f"{prediction_result['probability']:.2%}")
         metric_b.metric("Risk Category", prediction_result["risk_band"])
-        metric_c.metric("Decision Support Recommendation", prediction_result["recommendation"])
+        st.warning(f"Decision-support recommendation: **{prediction_result['recommendation']}**")
         st.caption(
             "Decision support only. This dashboard does not make final credit approval or rejection decisions."
         )
@@ -423,20 +416,60 @@ with tab_fairness:
     fairness_json = load_json(fairness_json_path)
     mitigation_df = load_csv(mitigation_path)
 
-    if fairness_df is None or fairness_json is None:
+    if fairness_json is None:
         show_warning_if_missing("Fairness report", fairness_json_path)
     else:
         st.write(
             f"Protected attribute used in the saved report: `{fairness_json['protected_attribute']}`"
         )
-        st.dataframe(fairness_df, width="stretch")
-        fairness_plot = fairness_df.T.reset_index()
-        fairness_plot.columns = ["metric", "value"]
-        st.bar_chart(fairness_plot.set_index("metric"))
+        fairness_metrics = fairness_json.get("fairness_metrics", {})
+        required_metrics = {
+            "demographic_parity_difference",
+            "equalized_odds_difference",
+            "equal_opportunity_difference",
+            "disparate_impact_ratio",
+        }
+        if required_metrics.issubset(fairness_metrics):
+            difference_col1, difference_col2 = st.columns(2)
+            difference_col1.metric(
+                "Demographic Parity Difference",
+                f"{fairness_metrics['demographic_parity_difference']:.4f}",
+            )
+            difference_col1.caption("Closer to 0 is better.")
+            difference_col2.metric(
+                "Equalized Odds Difference",
+                f"{fairness_metrics['equalized_odds_difference']:.4f}",
+            )
+            difference_col2.caption("Closer to 0 is better.")
+
+            opportunity_col, ratio_col = st.columns(2)
+            opportunity_col.metric(
+                "Equal Opportunity Difference",
+                f"{fairness_metrics['equal_opportunity_difference']:.4f}",
+            )
+            opportunity_col.caption("Closer to 0 is better.")
+            ratio_col.metric(
+                "Disparate Impact Ratio",
+                f"{fairness_metrics['disparate_impact_ratio']:.4f}",
+            )
+            ratio_col.caption("Closer to 1 is better.")
+        else:
+            st.warning("The saved fairness report does not contain all expected metrics.")
+
         st.write(
-            "Demographic parity difference closer to 0 and disparate impact closer to 1 indicate "
-            "smaller group-level approval disparities."
+            "Difference metrics closer to 0 and disparate impact ratio closer to 1 indicate "
+            "smaller observed group-level disparity."
         )
+        st.caption(
+            "Fairness metrics are group-level diagnostics and do not prove the model is "
+            "bias-free for every applicant."
+        )
+
+    if fairness_df is None:
+        show_warning_if_missing("Fairness metrics CSV", fairness_csv_path)
+    else:
+        with st.expander("View saved fairness metrics"):
+            st.dataframe(fairness_df, width="stretch")
 
     if mitigation_df is None:
         show_warning_if_missing("Fairness mitigation tradeoff file", mitigation_path)
