@@ -1,0 +1,39 @@
+{
+  "dataset": "default_credit_card",
+  "decision_target": "approval",
+  "approval_threshold": 0.5,
+  "protected_attributes": [
+    "SEX",
+    "AGE_GROUP"
+  ],
+  "fairness_metrics": {
+    "logistic_regression": {
+      "SEX": {
+        "demographic_parity_difference": 0.055193027489136126,
+        "equalized_odds_difference": 0.047702865060440636,
+        "equal_opportunity_difference": 0.047702865060440636,
+        "disparate_impact_ratio": 0.9285152941303413
+      },
+      "AGE_GROUP": {
+        "demographic_parity_difference": 0.11498257839721249,
+        "equalized_odds_difference": 0.15702479338842967,
+        "equal_opportunity_difference": 0.15702479338842967,
+        "disparate_impact_ratio": 0.853658536585366
+      }
+    },
+    "xgboost": {
+      "SEX": {
+        "demographic_parity_difference": 0.005390866144064699,
+        "equalized_odds_difference": 0.02863685231985036,
+        "equal_opportunity_difference": 0.007191996796140576,
+        "disparate_impact_ratio": 0.9939062719489963
+      },
+      "AGE_GROUP": {
+        "demographic_parity_difference": 0.11370832557273236,
+        "equalized_odds_difference": 0.15306122448979587,
+        "equal_opportunity_difference": 0.08756567425569173,
+        "disparate_impact_ratio": 0.877544880152442
+      }
+    }
+  }
+}
