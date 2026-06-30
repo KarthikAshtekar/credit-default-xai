@@ -7,6 +7,17 @@
 - Integrated SHAP, LIME, and DiCE counterfactual explanations to translate model predictions into global, local, and actionable decision support views.
 - Designed fairness reporting for approval decisions using demographic parity, equal opportunity, equalized odds, and disparate impact metrics.
 
+## 3-Pointer CV Version
+- Built a responsible AI credit default workflow on a Dubai Arab Bank case-study dataset, framing the final model around application-time underwriting rather than hindsight monitoring.
+- Rejected near-perfect behavioral/full-diagnostic XGBoost results after leakage audit and selected an honest application-time XGBoost model with `0.7825` ROC-AUC.
+- Delivered SHAP, LIME, counterfactual, fairness, mitigation, Streamlit dashboard, and separate UCI Taiwan external-validation benchmark artifacts without claiming production deployment or regulatory scorecard compliance.
+
+## 4-Pointer CV Version
+- Framed credit default prediction as an application-time underwriting problem using the Dubai Arab Bank case-study dataset.
+- Trained logistic regression and XGBoost variants, audited feature-timing leakage, and selected the final application-time XGBoost model over inflated behavioral/full-diagnostic results.
+- Added SHAP, LIME, DiCE counterfactuals, fairness metrics, and mitigation experiments to communicate model drivers and group-level tradeoffs.
+- Built a Streamlit dashboard and separate UCI Taiwan external-validation benchmark workflow while keeping external metrics separate from the Dubai headline results.
+
 ## Technical Resume Bullets
 - Implemented feature-set controls in Python to distinguish application-time, behavioral-monitoring, and full diagnostic model variants within a shared credit risk pipeline.
 - Added a leakage audit script that checks target leakage, duplicate train/test overlap, feature-target correlation, mutual information, single-feature AUC, XGBoost importance, SHAP signals, and target-shuffle sanity performance.
@@ -20,4 +31,4 @@
 - Responsible AI for Credit Default Prediction
 
 ## LinkedIn / GitHub Description
-Built a leakage-audited credit default risk project using Python, XGBoost, SHAP, LIME, counterfactual explanations, and fairness metrics. The work explicitly rejected near-perfect diagnostic results caused by post-loan behavioral features and reframed the final model around application-time underwriting variables, delivering a more honest `0.7825` ROC-AUC XGBoost model supported by temporal validation, bias analysis, mitigation experiments, notebooks, and a Streamlit dashboard.
+Built a leakage-audited credit default risk project using Python, XGBoost, SHAP, LIME, counterfactual explanations, and fairness metrics. The work explicitly rejected near-perfect diagnostic results caused by post-loan behavioral features and reframed the final model around application-time underwriting variables, delivering a more honest `0.7825` ROC-AUC XGBoost model supported by temporal validation, bias analysis, mitigation experiments, notebooks, a Streamlit dashboard, and a separate UCI Taiwan external-validation benchmark.
