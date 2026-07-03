@@ -1,7 +1,7 @@
-"""External public-dataset validation workflows.
+"""Future public-dataset benchmark workflows.
 
-These workflows train separate benchmark models on public datasets. They do not apply the
-Dubai-trained model to external schemas and do not alter the primary project results.
+UCI Taiwan is now the primary project dataset. This module remains for future public
+dataset comparisons and compatibility with earlier commands.
 """
 
 from __future__ import annotations
@@ -390,8 +390,8 @@ def write_external_validation_outputs(
         "feature_columns": result["feature_columns"],
         "model_metrics": result["model_metrics"],
         "notes": [
-            "External validation trains separate models on the public dataset.",
-            "These metrics do not replace the Dubai Arab Bank case-study headline results.",
+            "This compatibility workflow trains benchmark models on a public dataset.",
+            "UCI Taiwan is now the primary project dataset; future datasets should be read as future-scope comparisons.",
         ],
     }
     fairness_payload = {
@@ -417,12 +417,11 @@ def write_external_validation_outputs(
     fairness_df.to_csv(fairness_csv, index=False)
 
     summary_lines = [
-        "# External Validation: UCI Default of Credit Card Clients (Taiwan credit-card default)",
+        "# Public Benchmark: UCI Default of Credit Card Clients (Taiwan credit-card default)",
         "",
-        "This benchmark trains separate models on the public UCI Default of Credit Card",
+        "This compatibility benchmark trains models on the public UCI Default of Credit Card",
         "Clients / Taiwan credit-card default dataset.",
-        "It does not apply the Dubai-trained model to the UCI schema and does not replace the",
-        "primary Dubai Arab Bank case-study results.",
+        "The main project pipeline now also uses this public UCI dataset as the primary dataset.",
         "It is not evidence of production lending readiness or direct production generalization.",
         "",
         "## Dataset",
@@ -457,8 +456,7 @@ def write_external_validation_outputs(
         "",
         "Fairness metrics are calculated on approval decisions derived from default",
         f"probabilities using threshold `{APPROVAL_THRESHOLD}`.",
-        "They are saved separately from the Dubai fairness reports and should be read as",
-        "group-level diagnostics, not proof that the benchmark model is bias-free.",
+        "They are group-level diagnostics, not proof that the benchmark model is bias-free.",
     ]
     summary_md.write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
 
@@ -503,7 +501,7 @@ def run_external_validation(
     include_xgboost: bool = True,
 ) -> dict[str, Any]:
     if dataset != DATASET_DEFAULT_CREDIT_CARD:
-        raise ValueError(f"Unsupported external validation dataset: {dataset}")
+        raise ValueError(f"Unsupported public benchmark dataset: {dataset}")
 
     df, metadata = load_dataset(source="uci", dataset_name=DATASET_DEFAULT_CREDIT_CARD)
     return run_default_credit_card_validation(
@@ -515,9 +513,7 @@ def run_external_validation(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Run separate external validation on public credit datasets."
-    )
+    parser = argparse.ArgumentParser(description="Run compatibility public-dataset benchmarks.")
     parser.add_argument(
         "--dataset", default=DATASET_DEFAULT_CREDIT_CARD, choices=SUPPORTED_DATASETS
     )
@@ -544,10 +540,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             include_xgboost=not args.no_xgboost,
         )
     except Exception as exc:
-        print(f"External validation failed: {exc}")
+        print(f"Public benchmark failed: {exc}")
         return 1
 
-    print("External validation completed.")
+    print("Public benchmark completed.")
     for label, path in result["output_files"].items():
         print(f"{label}: {path}")
     return 0

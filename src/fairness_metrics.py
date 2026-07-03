@@ -15,7 +15,6 @@ from fairlearn.metrics import (
 
 from .data_preprocessing import (
     FEATURE_SET_APPLICATION,
-    FEATURE_SET_BEHAVIORAL,
     FEATURE_SET_FULL_DIAGNOSTIC,
     TARGET_COL,
     get_dataset_split,
@@ -75,8 +74,6 @@ def compute_fairness_metrics(y_true, y_pred, sensitive) -> Dict[str, float]:
 
 def _model_context(model_path: Path) -> tuple[str, Path]:
     stem = model_path.stem
-    if "behavioral" in stem:
-        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "fairness_reports" / "behavioral_model"
     if "full_diagnostic" in stem:
         return FEATURE_SET_FULL_DIAGNOSTIC, REPORTS_DIR / "fairness_reports" / "full_diagnostic"
     return FEATURE_SET_APPLICATION, REPORTS_DIR / "fairness_reports" / "application_model"
@@ -84,9 +81,9 @@ def _model_context(model_path: Path) -> tuple[str, Path]:
 
 def run(model_path: Path | None = None, threshold: float = 0.50) -> Dict:
     model_path = model_path or (
-        MODELS_DIR / "xgboost_application.pkl"
-        if (MODELS_DIR / "xgboost_application.pkl").exists()
-        else MODELS_DIR / "logistic_application.pkl"
+        MODELS_DIR / "xgboost_public.pkl"
+        if (MODELS_DIR / "xgboost_public.pkl").exists()
+        else MODELS_DIR / "logistic_public.pkl"
     )
 
     feature_set, report_dir = _model_context(model_path)
@@ -109,6 +106,9 @@ def run(model_path: Path | None = None, threshold: float = 0.50) -> Dict:
         "feature_set": feature_set,
         "protected_attribute": protected_col,
         "approval_threshold": threshold,
+        "favorable_outcome": "predicted non-default / low-risk approval decision",
+        "unfavorable_outcome": "predicted default / high-risk decision",
+        "target_note": f"{TARGET_COL}=1 means next-month default.",
         "fairness_metrics": fairness,
         "test_rows": int(len(split.X_test)),
     }

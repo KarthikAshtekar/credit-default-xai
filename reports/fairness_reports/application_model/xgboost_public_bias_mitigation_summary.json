@@ -1,0 +1,50 @@
+{
+  "model": "models/xgboost_public.pkl",
+  "protected_attribute": "SEX",
+  "favorable_outcome": "predicted non-default / low-risk approval decision",
+  "baseline": {
+    "performance": {
+      "accuracy": 0.8152282572475842,
+      "precision": 0.6584302325581395,
+      "recall": 0.3413715146948003,
+      "f1": 0.4496277915632754,
+      "roc_auc": 0.7747718507831988
+    },
+    "fairness": {
+      "demographic_parity_difference": 0.022032268651218212,
+      "equalized_odds_difference": 0.022507919795332176,
+      "equal_opportunity_difference": 0.006294570340171113,
+      "disparate_impact_ratio": 0.9753554494958341
+    }
+  },
+  "reweighing": {
+    "performance": {
+      "accuracy": 0.8147284238587138,
+      "precision": 0.657856093979442,
+      "recall": 0.33760361718161264,
+      "f1": 0.44621513944223107,
+      "roc_auc": 0.7735251804359478
+    },
+    "fairness": {
+      "demographic_parity_difference": 0.02255105463376772,
+      "equalized_odds_difference": 0.026128397661466907,
+      "equal_opportunity_difference": 0.006074707491044218,
+      "disparate_impact_ratio": 0.9748137349440544
+    }
+  },
+  "fairlearn_postprocessing": {
+    "performance": {
+      "accuracy": 0.8112295901366211,
+      "precision": 0.6310810810810811,
+      "recall": 0.3519216277317257,
+      "f1": 0.45186260280599905,
+      "roc_auc": 0.646762952903296
+    },
+    "fairness": {
+      "demographic_parity_difference": 0.010586589318274608,
+      "equalized_odds_difference": 0.012983384592650027,
+      "equal_opportunity_difference": 0.0058865313301643685,
+      "disparate_impact_ratio": 0.9879814559698319
+    }
+  }
+}

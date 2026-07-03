@@ -17,8 +17,8 @@ def build_logistic_estimator() -> LogisticRegression:
 
 def build_xgboost_estimator() -> XGBClassifier:
     return XGBClassifier(
-        n_estimators=300,
-        max_depth=5,
+        n_estimators=150,
+        max_depth=4,
         learning_rate=0.05,
         subsample=0.9,
         colsample_bytree=0.9,

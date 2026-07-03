@@ -31,11 +31,11 @@ def load_data_for_dashboard() -> pd.DataFrame:
 
 def ensure_model(model_choice: str):
     if model_choice == "Logistic Regression":
-        path = MODELS_DIR / "logistic_application.pkl"
+        path = MODELS_DIR / "logistic_public.pkl"
         if not path.exists():
             train_logistic_run(path)
     else:
-        path = MODELS_DIR / "xgboost_application.pkl"
+        path = MODELS_DIR / "xgboost_public.pkl"
         if not path.exists():
             train_xgboost_run(path)
     return load_model(path), path
@@ -50,31 +50,36 @@ def get_feature_table() -> pd.DataFrame:
 
 def get_application_artifact_paths() -> dict[str, Path]:
     return {
-        "performance": REPORTS_DIR / "model_validation" / "clean_feature_model_comparison.csv",
+        "performance": REPORTS_DIR / "model_validation" / "public_credit_model_comparison.csv",
         "temporal": REPORTS_DIR / "model_validation" / "temporal_split_comparison.csv",
         "fairness_csv": REPORTS_DIR
         / "fairness_reports"
         / "application_model"
-        / "xgboost_application_fairness_metrics.csv",
+        / "xgboost_public_fairness_metrics.csv",
         "fairness_json": REPORTS_DIR
         / "fairness_reports"
         / "application_model"
-        / "xgboost_application_fairness_metrics.json",
+        / "xgboost_public_fairness_metrics.json",
         "mitigation": REPORTS_DIR
         / "fairness_reports"
         / "application_model"
-        / "xgboost_application_fairness_accuracy_tradeoff.csv",
+        / "xgboost_public_fairness_accuracy_tradeoff.csv",
         "leakage": REPORTS_DIR / "leakage_audit" / "leakage_audit_summary.json",
+        "leakage_report": REPORTS_DIR / "leakage_audit" / "leakage_audit_report.md",
         "counterfactual": REPORTS_DIR
         / "explainability_reports"
         / "application_model"
-        / "xgboost_application_counterfactuals.json",
+        / "xgboost_public_counterfactuals.json",
         "shap_summary": REPORTS_DIR
         / "explainability_reports"
         / "application_model"
-        / "xgboost_application_shap_summary.png",
+        / "xgboost_public_shap_summary.png",
         "shap_local": REPORTS_DIR
         / "explainability_reports"
         / "application_model"
-        / "xgboost_application_shap_local.png",
+        / "xgboost_public_shap_local.png",
+        "lime_local": REPORTS_DIR
+        / "explainability_reports"
+        / "application_model"
+        / "xgboost_public_lime_local.png",
     }

@@ -9,7 +9,6 @@ from lime.lime_tabular import LimeTabularExplainer
 
 from .data_preprocessing import (
     FEATURE_SET_APPLICATION,
-    FEATURE_SET_BEHAVIORAL,
     FEATURE_SET_FULL_DIAGNOSTIC,
     TARGET_COL,
     get_dataset_split,
@@ -26,8 +25,6 @@ from .utils import (
 
 def _model_context(model_path: Path) -> tuple[str, Path]:
     stem = model_path.stem
-    if "behavioral" in stem:
-        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "explainability_reports" / "behavioral_model"
     if "full_diagnostic" in stem:
         return (
             FEATURE_SET_FULL_DIAGNOSTIC,
@@ -84,14 +81,11 @@ def generate_lime_explanation(model_path: Path, instance_index: int = 0) -> dict
 
 
 def run() -> dict:
-    xgb_path = MODELS_DIR / "xgboost_application.pkl"
-    log_path = MODELS_DIR / "logistic_application.pkl"
-    behavioral_path = MODELS_DIR / "xgboost_behavioral.pkl"
+    xgb_path = MODELS_DIR / "xgboost_public.pkl"
+    log_path = MODELS_DIR / "logistic_public.pkl"
 
     if xgb_path.exists():
         return generate_lime_explanation(xgb_path)
-    if behavioral_path.exists():
-        return generate_lime_explanation(behavioral_path)
     if log_path.exists():
         return generate_lime_explanation(log_path)
 
