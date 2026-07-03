@@ -24,20 +24,20 @@ def test_build_applicant_risk_report_includes_driver_and_guidance_text() -> None
             {
                 "display_name": "Loan-to-Income Ratio",
                 "shap_value": 0.31,
-                "interpretation": "Loan burden is above the portfolio median.",
+                "interpretation": "Bill-to-limit utilization is above the portfolio median.",
             }
         ],
         negative_drivers=[
             {
                 "display_name": "Bureau Score",
                 "shap_value": -0.22,
-                "interpretation": "Bureau score helps reduce modeled risk.",
+                "interpretation": "Repayment relative to bills helps reduce modeled risk.",
             }
         ],
-        guidance=["Reducing the requested loan amount may reduce predicted risk."],
+        guidance=["Reducing bill-to-limit utilization may reduce predicted risk."],
     )
 
     assert report["risk_band"] == "High Risk"
     assert "Loan-to-Income Ratio" in report["markdown"]
     assert "Bureau Score" in report["markdown"]
-    assert "Reducing the requested loan amount" in report["markdown"]
+    assert "Reducing bill-to-limit utilization" in report["markdown"]

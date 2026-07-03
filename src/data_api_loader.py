@@ -10,22 +10,29 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_LOCAL_DATASET = (
-    ROOT_DIR / "data" / "raw" / "Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx"
+from .dataset_adapters import (
+    PROTECTED_ATTRIBUTE,
+    TARGET_COL,
+    UCI_DEFAULT_CREDIT_CARD_DISPLAY_NAME,
+    UCI_DEFAULT_CREDIT_CARD_NAME,
+    adapt_uci_default_credit_card,
 )
-PROTECTED_ATTRIBUTE_CANDIDATES = ["Gender", "Age", "Nationality", "City", "EmploymentStatus"]
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_LOCAL_DATASET = ROOT_DIR / "data" / "raw" / "legacy_local_credit_dataset.xlsx"
+PROTECTED_ATTRIBUTE_CANDIDATES = [PROTECTED_ATTRIBUTE, "AGE", "MARRIAGE", "EDUCATION"]
+DEFAULT_UCI_DATASET_NAME = UCI_DEFAULT_CREDIT_CARD_NAME
 
 UCI_DATASETS = {
-    "default_credit_card": {
+    UCI_DEFAULT_CREDIT_CARD_NAME: {
         "uci_id": 350,
-        "display_name": "Default of Credit Card Clients",
-        "notes": "Useful for external validation on a public credit default benchmark.",
+        "display_name": UCI_DEFAULT_CREDIT_CARD_DISPLAY_NAME,
+        "notes": "Primary public dataset for the current project pipeline.",
     },
     "south_german_credit": {
         "uci_id": 573,
         "display_name": "South German Credit",
-        "notes": "Useful for external validation on a public credit risk dataset.",
+        "notes": "Future-scope public credit risk dataset; not the primary pipeline dataset.",
     },
 }
 UCI_ALIASES = {
@@ -77,11 +84,11 @@ def _load_local_dataset(path: str | Path | None) -> tuple[pd.DataFrame, dict[str
 
     df = _load_tabular_file(dataset_path)
     metadata = {
-        "dataset_name": "Dubai Arab Bank Case Study",
+        "dataset_name": "Legacy local credit dataset",
         "source": "local",
-        "target_column": "Default_Flag" if "Default_Flag" in df.columns else None,
+        "target_column": TARGET_COL if TARGET_COL in df.columns else None,
         "protected_attributes_available": _protected_attributes_available(df),
-        "notes": "Default project dataset loaded from the local case-study file.",
+        "notes": "Legacy explicit local-file route. Not used as the current final-result source.",
         "path": _project_relative_path(dataset_path),
     }
     return df, metadata
@@ -99,7 +106,7 @@ def _load_url_dataset(url: str | None) -> tuple[pd.DataFrame, dict[str, Any]]:
     metadata = {
         "dataset_name": Path(urlparse(url).path).name or "remote_dataset",
         "source": "url",
-        "target_column": "Default_Flag" if "Default_Flag" in df.columns else None,
+        "target_column": TARGET_COL if TARGET_COL in df.columns else None,
         "protected_attributes_available": _protected_attributes_available(df),
         "notes": "Loaded from a direct public CSV/Excel URL.",
         "url": url,
@@ -109,7 +116,7 @@ def _load_url_dataset(url: str | None) -> tuple[pd.DataFrame, dict[str, Any]]:
 
 def _normalize_uci_dataset_name(dataset_name: str | None) -> str:
     if not dataset_name:
-        raise ValueError("dataset_name is required when source='uci'.")
+        return DEFAULT_UCI_DATASET_NAME
 
     normalized = dataset_name.strip().lower().replace("-", "_")
     normalized = UCI_ALIASES.get(normalized, normalized)
@@ -143,6 +150,10 @@ def _load_uci_dataset(dataset_name: str | None) -> tuple[pd.DataFrame, dict[str,
         df = pd.concat([features, targets], axis=1)
         target_column = targets.columns[0]
 
+    if normalized_name == UCI_DEFAULT_CREDIT_CARD_NAME:
+        df = adapt_uci_default_credit_card(df)
+        target_column = TARGET_COL
+
     metadata = {
         "dataset_name": dataset_config["display_name"],
         "source": "uci",
@@ -150,12 +161,13 @@ def _load_uci_dataset(dataset_name: str | None) -> tuple[pd.DataFrame, dict[str,
         "protected_attributes_available": _protected_attributes_available(df),
         "notes": dataset_config["notes"],
         "uci_id": dataset_config["uci_id"],
+        "primary_project_dataset": normalized_name == UCI_DEFAULT_CREDIT_CARD_NAME,
     }
     return df, metadata
 
 
 def load_dataset(
-    source: str = "local",
+    source: str = "uci",
     dataset_name: str | None = None,
     path: str | Path | None = None,
     url: str | None = None,
@@ -175,8 +187,8 @@ def load_dataset(
 
 def _build_cli() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Load a dataset from local files, URL, or UCI.")
-    parser.add_argument("--source", default="local", choices=["local", "url", "uci"])
-    parser.add_argument("--dataset_name", default=None)
+    parser.add_argument("--source", default="uci", choices=["local", "url", "uci"])
+    parser.add_argument("--dataset_name", default=DEFAULT_UCI_DATASET_NAME)
     parser.add_argument("--path", default=None)
     parser.add_argument("--url", default=None)
     return parser

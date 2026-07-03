@@ -48,7 +48,7 @@ def test_prepare_default_credit_card_dataset_maps_uci_columns() -> None:
     assert set(dataset.sensitive_features) == {"SEX", "AGE_GROUP"}
 
 
-def test_external_fairness_metrics_handle_binary_sensitive_attribute() -> None:
+def test_public_benchmark_fairness_metrics_handle_binary_sensitive_attribute() -> None:
     metrics = compute_external_fairness_metrics(
         y_default_true=pd.Series([0, 1, 0, 1]),
         default_proba=np.array([0.1, 0.8, 0.4, 0.7]),
@@ -63,7 +63,7 @@ def test_external_fairness_metrics_handle_binary_sensitive_attribute() -> None:
     }
 
 
-def test_external_validation_writes_outputs_without_model_pickles(tmp_path) -> None:
+def test_public_benchmark_writes_outputs_without_model_pickles(tmp_path) -> None:
     df = _synthetic_default_credit_card_data()
 
     result = run_default_credit_card_validation(
@@ -82,7 +82,7 @@ def test_external_validation_writes_outputs_without_model_pickles(tmp_path) -> N
     assert not list(tmp_path.glob("*.pkl"))
 
 
-def test_external_validation_cli_help() -> None:
+def test_public_benchmark_cli_help() -> None:
     parser = build_parser()
 
     with pytest.raises(SystemExit) as exc_info:

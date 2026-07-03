@@ -1,0 +1,16 @@
+{
+  "model": "models/xgboost_public.pkl",
+  "feature_set": "application_public",
+  "protected_attribute": "SEX",
+  "approval_threshold": 0.5,
+  "favorable_outcome": "predicted non-default / low-risk approval decision",
+  "unfavorable_outcome": "predicted default / high-risk decision",
+  "target_note": "Default_Flag=1 means next-month default.",
+  "fairness_metrics": {
+    "demographic_parity_difference": 0.022032268651218212,
+    "equalized_odds_difference": 0.022507919795332176,
+    "equal_opportunity_difference": 0.006294570340171113,
+    "disparate_impact_ratio": 0.9753554494958341
+  },
+  "test_rows": 6002
+}

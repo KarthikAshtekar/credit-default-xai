@@ -21,21 +21,24 @@ from sklearn.metrics import (
 from sklearn.pipeline import Pipeline
 
 from .data_preprocessing import (
-    BUREAU_FINANCIAL_FEATURES,
-    DEMOGRAPHIC_FEATURES,
+    FEATURE_POLICY_NOTE,
     FEATURE_SET_APPLICATION,
-    FEATURE_SET_BEHAVIORAL,
     FEATURE_SET_FULL_DIAGNOSTIC,
     FINANCIAL_BURDEN_FEATURES,
-    PAST_DEFAULTS_ASSUMPTION,
     TARGET_COL,
+    UCI_TIMING_NOTE,
     build_preprocessor,
     get_dataset_split,
     get_feature_columns,
     prepare_modeling_table,
 )
+from .dataset_adapters import (
+    PAY_STATUS_COLUMNS,
+    UCI_DEFAULT_CREDIT_CARD_DISPLAY_NAME,
+)
 from .model_builders import build_logistic_estimator, build_xgboost_estimator
 from .utils import (
+    DATA_PROCESSED_DIR,
     REPORTS_DIR,
     ensure_directories,
     load_dataset_auto,
@@ -157,19 +160,19 @@ def _flatten_results(results: Iterable[Dict[str, Any]]) -> pd.DataFrame:
         row.update(result["metrics"])
         rows.append(row)
     return pd.DataFrame(rows).sort_values(
-        by=["split_strategy", "roc_auc", "accuracy"],
-        ascending=[True, False, False],
+        by=["roc_auc", "accuracy"],
+        ascending=[False, False],
     )
 
 
 def compare_model_metrics(metrics_map: Dict[str, Dict[str, float]]) -> pd.DataFrame:
     df = pd.DataFrame(metrics_map).T.sort_values(by="roc_auc", ascending=False)
-    out_csv = REPORTS_DIR / "model_validation" / "clean_feature_model_comparison.csv"
+    out_csv = REPORTS_DIR / "model_validation" / "public_credit_model_comparison.csv"
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_csv, index=True)
     save_json(
         metrics_map,
-        REPORTS_DIR / "model_validation" / "clean_feature_model_comparison.json",
+        REPORTS_DIR / "model_validation" / "public_credit_model_comparison.json",
     )
     return df
 
@@ -179,82 +182,50 @@ def _standard_experiments(df: pd.DataFrame) -> list[Dict[str, Any]]:
         run_model_experiment(
             df,
             build_logistic_estimator(),
-            "logistic_application",
+            "logistic_public",
             FEATURE_SET_APPLICATION,
         ),
         run_model_experiment(
             df,
             build_xgboost_estimator(),
-            "xgboost_application",
+            "xgboost_public",
             FEATURE_SET_APPLICATION,
         ),
         run_model_experiment(
             df,
-            build_logistic_estimator(),
-            "logistic_behavioral",
-            FEATURE_SET_BEHAVIORAL,
-        ),
-        run_model_experiment(
-            df,
             build_xgboost_estimator(),
-            "xgboost_behavioral",
-            FEATURE_SET_BEHAVIORAL,
-        ),
-        run_model_experiment(
-            df,
-            build_xgboost_estimator(),
-            "xgboost_full_diagnostic",
+            "xgboost_full_public_diagnostic",
             FEATURE_SET_FULL_DIAGNOSTIC,
         ),
     ]
 
 
-def _write_feature_set_json(
-    path: Path,
-    feature_set: str,
-    results: list[Dict[str, Any]],
-    notes: list[str] | None = None,
-) -> None:
-    payload = {
-        "feature_set": feature_set,
-        "split_strategy": "random",
-        "models": {result["model_name"]: _serializable_result(result) for result in results},
-    }
-    if notes:
-        payload["notes"] = notes
-    save_json(payload, path)
+def _write_model_json(path: Path, result: Dict[str, Any], notes: list[str]) -> None:
+    save_json(
+        {
+            "dataset": UCI_DEFAULT_CREDIT_CARD_DISPLAY_NAME,
+            "target": TARGET_COL,
+            "notes": notes,
+            **_serializable_result(result),
+        },
+        path,
+    )
 
 
-def run_temporal_split_comparison(df: pd.DataFrame) -> pd.DataFrame:
-    results = []
-    experiments = [
-        ("logistic_application", FEATURE_SET_APPLICATION, build_logistic_estimator()),
-        ("xgboost_application", FEATURE_SET_APPLICATION, build_xgboost_estimator()),
-        ("logistic_behavioral", FEATURE_SET_BEHAVIORAL, build_logistic_estimator()),
-        ("xgboost_behavioral", FEATURE_SET_BEHAVIORAL, build_xgboost_estimator()),
-        ("xgboost_full_diagnostic", FEATURE_SET_FULL_DIAGNOSTIC, build_xgboost_estimator()),
-    ]
-    for name, feature_set, estimator in experiments:
-        results.append(
-            run_model_experiment(
-                df,
-                estimator,
-                f"{name}_random",
-                feature_set,
-                split_strategy="random",
-            )
-        )
-        results.append(
-            run_model_experiment(
-                df,
-                estimator,
-                f"{name}_temporal",
-                feature_set,
-                split_strategy="temporal",
-            )
-        )
-
-    output = _flatten_results(results)
+def write_temporal_validation_note() -> pd.DataFrame:
+    output = pd.DataFrame(
+        [
+            {
+                "validation": "temporal_split",
+                "status": "not_run",
+                "reason": (
+                    "The UCI Taiwan credit-card default dataset has no true application "
+                    "timestamp, so the final reported metrics use a stratified random "
+                    "held-out test split. Dates were not invented."
+                ),
+            }
+        ]
+    )
     out_path = REPORTS_DIR / "model_validation" / "temporal_split_comparison.csv"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     output.to_csv(out_path, index=False)
@@ -263,56 +234,41 @@ def run_temporal_split_comparison(df: pd.DataFrame) -> pd.DataFrame:
 
 def run_ablation_study(df: pd.DataFrame) -> pd.DataFrame:
     prepared = prepare_modeling_table(df, target_col=TARGET_COL)
-    baseline_features = get_feature_columns(prepared, FEATURE_SET_FULL_DIAGNOSTIC)
+    baseline_features = get_feature_columns(prepared, FEATURE_SET_APPLICATION)
 
     experiments = [
-        ("baseline_full_diagnostic", baseline_features),
+        ("baseline_application_public", baseline_features),
         (
-            "without_payment_behavior",
-            [
-                col
-                for col in baseline_features
-                if col
-                not in {
-                    "OnTimePayments_Last12M",
-                    "MissedPayments_Last12M",
-                    "MissedEMIs_Last6M",
-                    "MissedPaymentRate",
-                    "HistoricalRiskScore",
-                }
-            ],
+            "without_repayment_status",
+            [col for col in baseline_features if col not in set(PAY_STATUS_COLUMNS)],
         ),
         (
-            "without_demographics",
-            [col for col in baseline_features if col not in set(DEMOGRAPHIC_FEATURES)],
-        ),
-        (
-            "without_burden_features",
+            "without_utilization_ratios",
             [col for col in baseline_features if col not in set(FINANCIAL_BURDEN_FEATURES)],
         ),
         (
-            "bureau_financial_only",
-            [col for col in baseline_features if col in set(BUREAU_FINANCIAL_FEATURES)],
+            "without_profile_fields",
+            [col for col in baseline_features if col not in {"AGE", "MARRIAGE", "EDUCATION"}],
         ),
     ]
 
-    results = []
+    rows = []
     for name, feature_columns in experiments:
         result = run_model_experiment(
             df,
             build_xgboost_estimator(),
             f"xgboost_{name}",
-            FEATURE_SET_FULL_DIAGNOSTIC,
+            FEATURE_SET_APPLICATION,
             feature_columns=feature_columns,
         )
-        rows = {
+        row = {
             "ablation": name,
             "feature_count": len(feature_columns),
         }
-        rows.update(result["metrics"])
-        results.append(rows)
+        row.update(result["metrics"])
+        rows.append(row)
 
-    output = pd.DataFrame(results).sort_values(by="roc_auc", ascending=False)
+    output = pd.DataFrame(rows).sort_values(by="roc_auc", ascending=False)
     out_path = REPORTS_DIR / "model_validation" / "ablation_results.csv"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     output.to_csv(out_path, index=False)
@@ -322,53 +278,49 @@ def run_ablation_study(df: pd.DataFrame) -> pd.DataFrame:
 def run() -> pd.DataFrame:
     ensure_directories()
     df_raw, _ = load_dataset_auto()
+    processed = prepare_modeling_table(df_raw, target_col=TARGET_COL)
+    DATA_PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+    processed.to_csv(DATA_PROCESSED_DIR / "uci_taiwan_credit_default_processed.csv", index=False)
+
     standard_results = _standard_experiments(df_raw)
     standard_df = _flatten_results(standard_results)
 
-    clean_feature_metrics = {result["model_name"]: result["metrics"] for result in standard_results}
-    compare_model_metrics(clean_feature_metrics)
-
-    application_results = [
-        result for result in standard_results if result["feature_set"] == FEATURE_SET_APPLICATION
-    ]
-    behavioral_results = [
-        result for result in standard_results if result["feature_set"] == FEATURE_SET_BEHAVIORAL
-    ]
-    full_results = [
-        result
-        for result in standard_results
-        if result["feature_set"] == FEATURE_SET_FULL_DIAGNOSTIC
-    ]
+    metrics_map = {result["model_name"]: result["metrics"] for result in standard_results}
+    compare_model_metrics(metrics_map)
 
     model_validation_dir = REPORTS_DIR / "model_validation"
     model_validation_dir.mkdir(parents=True, exist_ok=True)
-    _write_feature_set_json(
-        model_validation_dir / "application_model_metrics.json",
-        FEATURE_SET_APPLICATION,
-        application_results,
-        notes=[PAST_DEFAULTS_ASSUMPTION],
+    standard_df.to_csv(model_validation_dir / "public_credit_model_comparison.csv", index=False)
+    standard_df.to_csv(model_validation_dir / "clean_feature_model_comparison.csv", index=False)
+    save_json(metrics_map, model_validation_dir / "clean_feature_model_comparison.json")
+
+    result_by_name = {result["model_name"]: result for result in standard_results}
+    _write_model_json(
+        model_validation_dir / "logistic_public_model_metrics.json",
+        result_by_name["logistic_public"],
+        [FEATURE_POLICY_NOTE, UCI_TIMING_NOTE],
     )
-    _write_feature_set_json(
-        model_validation_dir / "behavioral_model_metrics.json",
-        FEATURE_SET_BEHAVIORAL,
-        behavioral_results,
-        notes=[
-            "Behavioral monitoring features include repayment history and account-behavior signals.",
-            PAST_DEFAULTS_ASSUMPTION,
-        ],
+    _write_model_json(
+        model_validation_dir / "xgboost_public_model_metrics.json",
+        result_by_name["xgboost_public"],
+        [FEATURE_POLICY_NOTE, UCI_TIMING_NOTE],
     )
-    _write_feature_set_json(
-        model_validation_dir / "full_diagnostic_model_metrics.json",
-        FEATURE_SET_FULL_DIAGNOSTIC,
-        full_results,
-        notes=[
-            "Full diagnostic results are not the final credit-origination headline model.",
-            "This feature set includes post-outcome behavioral features and is diagnostic only.",
+    _write_model_json(
+        model_validation_dir / "full_public_diagnostic_model_metrics.json",
+        result_by_name["xgboost_full_public_diagnostic"],
+        [
+            "Diagnostic-only feature set includes protected attribute SEX.",
+            UCI_TIMING_NOTE,
         ],
     )
 
-    standard_df.to_csv(model_validation_dir / "clean_feature_model_comparison.csv", index=False)
-    run_temporal_split_comparison(df_raw)
+    # Compatibility filenames are overwritten so old local-case metrics are not left as headlines.
+    _write_model_json(
+        model_validation_dir / "application_model_metrics.json",
+        result_by_name["xgboost_public"],
+        [FEATURE_POLICY_NOTE, UCI_TIMING_NOTE],
+    )
+    write_temporal_validation_note()
     run_ablation_study(df_raw)
     return standard_df
 

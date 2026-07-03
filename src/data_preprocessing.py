@@ -12,100 +12,48 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from .dataset_adapters import (
+    APPLICATION_PUBLIC_FEATURES,
+    FULL_PUBLIC_DIAGNOSTIC_FEATURES,
+    TARGET_COL,
+    UCI_ID_COLUMNS,
+)
 from .feature_engineering import apply_feature_engineering
 from .utils import normalize_target
 
-DROP_COLUMNS_DEFAULT = ["CustomerID", "LoanID"]
-TARGET_COL = "Default_Flag"
+DROP_COLUMNS_DEFAULT = UCI_ID_COLUMNS + ["CustomerID", "LoanID"]
 
-FEATURE_SET_APPLICATION = "application"
-FEATURE_SET_BEHAVIORAL = "behavioral"
-FEATURE_SET_FULL_DIAGNOSTIC = "full_diagnostic"
+FEATURE_SET_APPLICATION = "application_public"
+FEATURE_SET_BEHAVIORAL = "legacy_behavioral"
+FEATURE_SET_FULL_DIAGNOSTIC = "full_public_diagnostic"
 FEATURE_SET_NAMES = [
     FEATURE_SET_APPLICATION,
-    FEATURE_SET_BEHAVIORAL,
     FEATURE_SET_FULL_DIAGNOSTIC,
 ]
 
-APPLICATION_TIME_FEATURES = [
-    "Age",
-    "Gender",
-    "Nationality",
-    "City",
-    "EmploymentStatus",
-    "AnnualIncome_AED",
-    "OtherObligations_AED",
-    "BureauScore",
-    "LoanType",
-    "LoanAmount_AED",
-    "LoanTenureMonths",
-    "InterestRate_pct",
-    "LoanStartYear",
-    "LoanStartMonth",
-    "LoanStartQuarter",
-    "Unemployment_pct",
-    "Inflation_pct",
-    "EMI_AED",
-    "LoanToAnnualIncome",
-    "ObligationsToIncome",
-    "EMIToIncome",
-]
+APPLICATION_TIME_FEATURES = APPLICATION_PUBLIC_FEATURES
+BEHAVIORAL_MONITORING_ONLY_FEATURES: list[str] = []
+POST_OUTCOME_BEHAVIORAL_FEATURES: list[str] = []
 
-BEHAVIORAL_MONITORING_ONLY_FEATURES = [
-    "OnTimePayments_Last12M",
-    "MissedPayments_Last12M",
-    "MissedEMIs_Last6M",
-    "PastDefaults",
-    "AvgMonthlyDebit_AED",
-    "StdMonthlyDebit_AED",
-    "SalaryDropFlag",
-    "SpendingSpikeFlag",
-    "StressSignalCount",
-    "HistoricalRiskScore",
-    "MissedPaymentRate",
-]
-
-POST_OUTCOME_BEHAVIORAL_FEATURES = [
-    "OnTimePayments_Last12M",
-    "MissedPayments_Last12M",
-    "MissedEMIs_Last6M",
-    "AvgMonthlyDebit_AED",
-    "StdMonthlyDebit_AED",
-    "SalaryDropFlag",
-    "SpendingSpikeFlag",
-    "StressSignalCount",
-    "HistoricalRiskScore",
-    "MissedPaymentRate",
-]
-
-DEMOGRAPHIC_FEATURES = ["Age", "Gender", "Nationality", "City"]
+DEMOGRAPHIC_FEATURES = ["SEX", "AGE", "MARRIAGE", "EDUCATION"]
 FINANCIAL_BURDEN_FEATURES = [
-    "LoanToAnnualIncome",
-    "ObligationsToIncome",
-    "EMIToIncome",
+    "AvgBillToLimitRatio",
+    "AvgPaymentToBillRatio",
+    "PaymentToLimitRatio",
 ]
-BUREAU_FINANCIAL_FEATURES = [
-    "AnnualIncome_AED",
-    "OtherObligations_AED",
-    "BureauScore",
-    "LoanAmount_AED",
-    "LoanTenureMonths",
-    "InterestRate_pct",
-    "Unemployment_pct",
-    "Inflation_pct",
-    "EMI_AED",
-    "LoanToAnnualIncome",
-    "ObligationsToIncome",
-    "EMIToIncome",
-]
+BUREAU_FINANCIAL_FEATURES = ["LIMIT_BAL", *FINANCIAL_BURDEN_FEATURES]
 
-PAST_DEFAULTS_ASSUMPTION = (
-    "PastDefaults is excluded from the application-time model because the dataset does not "
-    "explicitly state whether it only refers to defaults before the current loan."
+FEATURE_POLICY_NOTE = (
+    "application_public excludes the direct protected attribute SEX from active training "
+    "features while retaining SEX in the audit dataframe for fairness analysis."
+)
+UCI_TIMING_NOTE = (
+    "PAY_0 to PAY_6 are historical repayment-status variables available before the "
+    "next-month default target and are not treated as leakage for this modeling question."
 )
 
 SplitStrategy = Literal["random", "temporal"]
-FeatureSetName = Literal["application", "behavioral", "full_diagnostic"]
+FeatureSetName = Literal["application_public", "legacy_behavioral", "full_public_diagnostic"]
 
 
 @dataclass
@@ -158,16 +106,23 @@ def get_feature_columns(
     prepared_df: pd.DataFrame,
     feature_set: FeatureSetName = FEATURE_SET_FULL_DIAGNOSTIC,
 ) -> List[str]:
-    if feature_set == FEATURE_SET_APPLICATION:
+    normalized_feature_set = {
+        "application": FEATURE_SET_APPLICATION,
+        "behavioral": FEATURE_SET_APPLICATION,
+        "full_diagnostic": FEATURE_SET_FULL_DIAGNOSTIC,
+    }.get(feature_set, feature_set)
+
+    if normalized_feature_set == FEATURE_SET_APPLICATION:
         candidates = APPLICATION_TIME_FEATURES
-    elif feature_set == FEATURE_SET_BEHAVIORAL:
-        candidates = APPLICATION_TIME_FEATURES + BEHAVIORAL_MONITORING_ONLY_FEATURES
-    elif feature_set == FEATURE_SET_FULL_DIAGNOSTIC:
-        candidates = [c for c in prepared_df.columns if c != TARGET_COL]
+    elif normalized_feature_set == FEATURE_SET_BEHAVIORAL:
+        candidates = APPLICATION_TIME_FEATURES
+    elif normalized_feature_set == FEATURE_SET_FULL_DIAGNOSTIC:
+        candidates = FULL_PUBLIC_DIAGNOSTIC_FEATURES
     else:
         raise ValueError(f"Unsupported feature set: {feature_set}")
 
-    return [c for c in candidates if c in prepared_df.columns and c != TARGET_COL]
+    drop_cols = set(DROP_COLUMNS_DEFAULT + [TARGET_COL])
+    return [c for c in candidates if c in prepared_df.columns and c not in drop_cols]
 
 
 def select_feature_table(
@@ -252,17 +207,34 @@ def get_dataset_split(
     X, y = split_features_target(selected, target_col=target_col)
 
     if split_strategy == "random":
-        X_train, X_test, y_train, y_test = train_test_split(
-            X,
-            y,
+        signature_frame = X.copy()
+        signature_frame[target_col] = y
+        row_signatures = signature_frame.astype(str).agg("||".join, axis=1)
+        groups = pd.Series(pd.factorize(row_signatures)[0], index=X.index, name="group")
+        group_targets = (
+            pd.DataFrame({"group": groups, target_col: y})
+            .drop_duplicates("group")
+            .set_index("group")[target_col]
+        )
+        group_ids = group_targets.index.to_series()
+        stratify_groups = group_targets if group_targets.nunique() > 1 else None
+        train_groups, test_groups = train_test_split(
+            group_ids,
             test_size=test_size,
             random_state=random_state,
-            stratify=y,
+            stratify=stratify_groups,
         )
+        train_mask = groups.isin(train_groups)
+        test_mask = groups.isin(test_groups)
+        X_train = X.loc[train_mask]
+        X_test = X.loc[test_mask]
+        y_train = y.loc[train_mask]
+        y_test = y.loc[test_mask]
     elif split_strategy == "temporal":
         if "LoanStartDate" not in df.columns:
             raise KeyError(
-                "Temporal split requested but LoanStartDate is missing from the raw dataset."
+                "Temporal split requested but the UCI primary dataset has no true application "
+                "timestamp. Use the documented stratified random split for final metrics."
             )
 
         dates = pd.to_datetime(df["LoanStartDate"], errors="coerce")

@@ -77,7 +77,8 @@ def build_applicant_risk_report(
             "",
             "## Governance Notes",
             "- Fairness caveat: saved fairness metrics are group-level diagnostics and do not prove the model is bias-free for every applicant.",
-            "- Leakage-safe feature note: this report uses the application-time model and excludes post-loan behavioral signals from applicant input.",
+            "- Leakage-safe feature note: this report uses historical UCI repayment, bill, and payment fields available before the next-month default target.",
+            "- Feature-policy note: SEX is used for fairness auditing and excluded from active final training features.",
             "- Limitation: this is not a production lending decision engine and is not a calibrated regulatory credit scorecard.",
         ]
     )

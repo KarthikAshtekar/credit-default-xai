@@ -10,6 +10,7 @@ from typing import Any
 from . import (
     bias_mitigation,
     counterfactuals,
+    data_audit,
     evaluate_models,
     fairness_metrics,
     leakage_audit,
@@ -51,6 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def build_steps(args: argparse.Namespace) -> list[PipelineStep]:
     steps = [
+        PipelineStep("Write dataset coverage audit", data_audit.run),
         PipelineStep("Train logistic models", train_logistic.run),
         PipelineStep("Train XGBoost models", train_xgboost.run),
         PipelineStep("Evaluate model variants", evaluate_models.run),

@@ -15,6 +15,7 @@ def test_pipeline_default_order_includes_required_artifact_stages() -> None:
     )
 
     assert [step.name for step in steps] == [
+        "Write dataset coverage audit",
         "Train logistic models",
         "Train XGBoost models",
         "Evaluate model variants",
@@ -37,6 +38,7 @@ def test_pipeline_skip_flags_remove_optional_stages() -> None:
     )
 
     names = [step.name for step in steps]
+    assert "Write dataset coverage audit" in names
     assert "Generate SHAP artifacts" not in names
     assert "Generate LIME artifacts" not in names
     assert "Run bias mitigation experiments" not in names

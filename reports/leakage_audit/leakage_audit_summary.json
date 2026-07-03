@@ -1,250 +1,166 @@
 {
-  "dataset": "data/raw/Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx",
-  "row_count": 10000,
-  "feature_count": 32,
+  "dataset": "uci:/default_credit_card",
+  "row_count": 30000,
+  "feature_count": 36,
+  "feature_set": "application_public",
+  "checks": {
+    "target_not_in_features": true,
+    "id_columns_not_in_features": true,
+    "id_columns_found_in_features": [],
+    "pay_status_timing_review": {
+      "columns": [
+        "PAY_0",
+        "PAY_2",
+        "PAY_3",
+        "PAY_4",
+        "PAY_5",
+        "PAY_6"
+      ],
+      "leakage_decision": "historical predictors, not treated as leakage"
+    }
+  },
   "top_correlations": [
     {
-      "feature": "StressSignalCount",
-      "correlation_with_target": 0.4045171062415088
+      "feature": "NumDelayedMonths",
+      "correlation_with_target": 0.39839435992672567
     },
     {
-      "feature": "BureauScore",
-      "correlation_with_target": -0.3387380129572043
+      "feature": "MaxPaymentDelay",
+      "correlation_with_target": 0.3310364976006475
     },
     {
-      "feature": "SpendingSpikeFlag",
-      "correlation_with_target": 0.29567324407168866
+      "feature": "RecentPaymentDelay",
+      "correlation_with_target": 0.32479372847862237
     },
     {
-      "feature": "MissedEMIs_Last6M",
-      "correlation_with_target": 0.2941605433625835
+      "feature": "PAY_0",
+      "correlation_with_target": 0.32479372847862237
     },
     {
-      "feature": "SalaryDropFlag",
-      "correlation_with_target": 0.28052519721988894
+      "feature": "PAY_2",
+      "correlation_with_target": 0.2635512016721678
     },
     {
-      "feature": "MissedPayments_Last12M",
-      "correlation_with_target": 0.2779508539418845
+      "feature": "PAY_3",
+      "correlation_with_target": 0.23525251372491712
     },
     {
-      "feature": "LoanToAnnualIncome",
-      "correlation_with_target": 0.24054771661250737
+      "feature": "PAY_4",
+      "correlation_with_target": 0.21661363684242388
     },
     {
-      "feature": "AnnualIncome_AED",
-      "correlation_with_target": -0.21594327062854754
+      "feature": "PAY_5",
+      "correlation_with_target": 0.2041489138761645
     },
     {
-      "feature": "HistoricalRiskScore",
-      "correlation_with_target": 0.21529861367401562
+      "feature": "PAY_6",
+      "correlation_with_target": 0.18686636165354611
     },
     {
-      "feature": "MissedPaymentRate",
-      "correlation_with_target": 0.21228253440927333
+      "feature": "LIMIT_BAL",
+      "correlation_with_target": -0.1535198763935072
     }
   ],
   "top_mutual_information": [
     {
-      "feature": "StressSignalCount",
-      "mutual_information": 0.09251537165346013
+      "feature": "PAY_0",
+      "mutual_information": 0.07552857774934951
     },
     {
-      "feature": "BureauScore",
-      "mutual_information": 0.07743197716195693
+      "feature": "RecentPaymentDelay",
+      "mutual_information": 0.07549088699538498
     },
     {
-      "feature": "MissedPayments_Last12M",
-      "mutual_information": 0.06585150317129274
+      "feature": "NumDelayedMonths",
+      "mutual_information": 0.07142142752335845
     },
     {
-      "feature": "LoanToAnnualIncome",
-      "mutual_information": 0.06571435967140316
+      "feature": "MaxPaymentDelay",
+      "mutual_information": 0.07056475455448985
     },
     {
-      "feature": "MissedEMIs_Last6M",
-      "mutual_information": 0.057877822409321045
+      "feature": "PAY_2",
+      "mutual_information": 0.04999930099744421
     },
     {
-      "feature": "SpendingSpikeFlag",
-      "mutual_information": 0.047013124991456934
+      "feature": "PAY_3",
+      "mutual_information": 0.036233163949041636
     },
     {
-      "feature": "SalaryDropFlag",
-      "mutual_information": 0.038521933652229556
+      "feature": "PAY_4",
+      "mutual_information": 0.029669500654784686
     },
     {
-      "feature": "MissedPaymentRate",
-      "mutual_information": 0.03770529789727384
+      "feature": "PAY_5",
+      "mutual_information": 0.028025166822981618
     },
     {
-      "feature": "EMIToIncome",
-      "mutual_information": 0.036874692086132255
+      "feature": "PAY_6",
+      "mutual_information": 0.02587392097569441
     },
     {
-      "feature": "AnnualIncome_AED",
-      "mutual_information": 0.024290884672121926
-    }
-  ],
-  "top_single_feature_auc": [
-    {
-      "feature": "BureauScore",
-      "roc_auc": 0.7091722798254245,
-      "accuracy": 0.7135
-    },
-    {
-      "feature": "StressSignalCount",
-      "roc_auc": 0.6848850879184643,
-      "accuracy": 0.6955
-    },
-    {
-      "feature": "MissedPayments_Last12M",
-      "roc_auc": 0.675213300032796,
-      "accuracy": 0.6605
-    },
-    {
-      "feature": "MissedEMIs_Last6M",
-      "roc_auc": 0.6620459648326144,
-      "accuracy": 0.642
-    },
-    {
-      "feature": "LoanToAnnualIncome",
-      "roc_auc": 0.6589944246827619,
-      "accuracy": 0.6705
-    },
-    {
-      "feature": "MissedPaymentRate",
-      "roc_auc": 0.6521869875627537,
-      "accuracy": 0.619
-    },
-    {
-      "feature": "HistoricalRiskScore",
-      "roc_auc": 0.6232750573929715,
-      "accuracy": 0.598
-    },
-    {
-      "feature": "EMIToIncome",
-      "roc_auc": 0.6175181008602639,
-      "accuracy": 0.6235
-    },
-    {
-      "feature": "SpendingSpikeFlag",
-      "roc_auc": 0.6088145513257145,
-      "accuracy": 0.636
-    },
-    {
-      "feature": "AnnualIncome_AED",
-      "roc_auc": 0.6046161608516865,
-      "accuracy": 0.5855
+      "feature": "AvgPaymentAmount",
+      "mutual_information": 0.02274486051309177
     }
   ],
   "top_xgboost_feature_importance": [
     {
-      "feature": "num__BureauScore",
-      "importance": 0.16873028874397278
+      "feature": "num__RecentPaymentDelay",
+      "importance": 0.3455999791622162
     },
     {
-      "feature": "num__MissedPayments_Last12M",
-      "importance": 0.14891797304153442
+      "feature": "num__MaxPaymentDelay",
+      "importance": 0.20966053009033203
     },
     {
-      "feature": "num__LoanToAnnualIncome",
-      "importance": 0.13467708230018616
+      "feature": "num__PAY_0",
+      "importance": 0.15754641592502594
     },
     {
-      "feature": "num__MissedEMIs_Last6M",
-      "importance": 0.13237422704696655
+      "feature": "num__NumDelayedMonths",
+      "importance": 0.032059602439403534
     },
     {
-      "feature": "num__StressSignalCount",
-      "importance": 0.12455981969833374
+      "feature": "num__AvgBillAmount",
+      "importance": 0.022541727870702744
     },
     {
-      "feature": "num__SpendingSpikeFlag",
-      "importance": 0.05029752478003502
+      "feature": "num__AvgPaymentAmount",
+      "importance": 0.014326692558825016
     },
     {
-      "feature": "num__SalaryDropFlag",
-      "importance": 0.04209595546126366
+      "feature": "num__PAY_2",
+      "importance": 0.012905031442642212
     },
     {
-      "feature": "num__MissedPaymentRate",
-      "importance": 0.03598232939839363
+      "feature": "num__BillToLimitRatio_1",
+      "importance": 0.011933422647416592
     },
     {
-      "feature": "num__EMIToIncome",
-      "importance": 0.022497769445180893
+      "feature": "num__LIMIT_BAL",
+      "importance": 0.011102032847702503
     },
     {
-      "feature": "num__PastDefaults",
-      "importance": 0.017709245905280113
-    }
-  ],
-  "top_shap_features": [
-    {
-      "feature": "num__BureauScore",
-      "mean_abs_shap": 3.263640880584717
-    },
-    {
-      "feature": "num__StressSignalCount",
-      "mean_abs_shap": 3.189746141433716
-    },
-    {
-      "feature": "num__MissedEMIs_Last6M",
-      "mean_abs_shap": 3.0704143047332764
-    },
-    {
-      "feature": "num__MissedPayments_Last12M",
-      "mean_abs_shap": 3.0238897800445557
-    },
-    {
-      "feature": "num__LoanToAnnualIncome",
-      "mean_abs_shap": 2.95731520652771
-    },
-    {
-      "feature": "num__SpendingSpikeFlag",
-      "mean_abs_shap": 0.2875867486000061
-    },
-    {
-      "feature": "num__SalaryDropFlag",
-      "mean_abs_shap": 0.24552395939826965
-    },
-    {
-      "feature": "num__MissedPaymentRate",
-      "mean_abs_shap": 0.08962733298540115
-    },
-    {
-      "feature": "num__EMIToIncome",
-      "mean_abs_shap": 0.05179332196712494
-    },
-    {
-      "feature": "num__AnnualIncome_AED",
-      "mean_abs_shap": 0.039300188422203064
+      "feature": "num__PAY_3",
+      "importance": 0.01105570513755083
     }
   ],
   "duplicate_overlap": {
-    "duplicate_rows_across_train_test": 0,
-    "duplicate_rows_excluding_target_across_train_test": 0,
-    "duplicate_customer_ids_across_train_test": 0,
-    "duplicate_loan_ids_across_train_test": 0
+    "source_index_overlap": 0,
+    "duplicate_selected_rows_across_train_test": 0,
+    "duplicate_feature_signatures_excluding_target_across_train_test": 10,
+    "id_overlap": {},
+    "train_rows": 23998,
+    "test_rows": 6002
   },
   "target_shuffle_test": {
-    "feature_set": "full_diagnostic",
-    "roc_auc": 0.526231236913141,
-    "accuracy": 0.538
+    "feature_set": "application_public",
+    "roc_auc": 0.49224913864523223,
+    "accuracy": 0.7785190126751167
   },
   "suspicious_features": [
-    "AvgMonthlyDebit_AED: post-loan behavioral feature",
-    "BureauScore: top mutual information",
-    "HistoricalRiskScore: post-loan behavioral feature",
-    "MissedEMIs_Last6M: post-loan behavioral feature",
-    "MissedPaymentRate: post-loan behavioral feature",
-    "MissedPayments_Last12M: post-loan behavioral feature",
-    "OnTimePayments_Last12M: post-loan behavioral feature",
-    "SalaryDropFlag: post-loan behavioral feature",
-    "SpendingSpikeFlag: post-loan behavioral feature",
-    "StdMonthlyDebit_AED: post-loan behavioral feature",
-    "StressSignalCount: post-loan behavioral feature",
-    "StressSignalCount: top mutual information"
-  ]
+    "PAY_0: top mutual information review signal",
+    "RecentPaymentDelay: top mutual information review signal"
+  ],
+  "conclusion": "No detected target leakage or train/test overlap in the public UCI pipeline based on implemented checks."
 }

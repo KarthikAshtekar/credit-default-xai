@@ -21,6 +21,7 @@ reports/fairness_reports/*.csv
 !reports/explainability_reports/.gitkeep
 !data/processed/.gitkeep
 !data/raw/.gitkeep
-data/raw/Afors Consulting_Dubai Arab Bank Dataset_MDI.xlsx
 data/raw/*.xls
+data/raw/*.xlsx
 data/raw/*.csv
+data/processed/*.csv

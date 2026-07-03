@@ -2,24 +2,25 @@
   "dataset": "UCI Default of Credit Card Clients / Taiwan credit-card default",
   "target": "Default_Flag",
   "notes": [
-    "application_public excludes the direct protected attribute SEX from active training features while retaining SEX in the audit dataframe for fairness analysis.",
+    "Diagnostic-only feature set includes protected attribute SEX.",
     "PAY_0 to PAY_6 are historical repayment-status variables available before the next-month default target and are not treated as leakage for this modeling question."
   ],
-  "model_name": "xgboost_public",
-  "feature_set": "application_public",
+  "model_name": "xgboost_full_public_diagnostic",
+  "feature_set": "full_public_diagnostic",
   "split_strategy": "random",
   "metrics": {
-    "accuracy": 0.8152282572475842,
-    "precision": 0.6584302325581395,
-    "recall": 0.3413715146948003,
-    "f1": 0.4496277915632754,
-    "roc_auc": 0.7747718507831988
+    "accuracy": 0.8193935354881706,
+    "precision": 0.6753246753246753,
+    "recall": 0.35267520723436324,
+    "f1": 0.4633663366336634,
+    "roc_auc": 0.7805110639172432
   },
   "train_rows": 23998,
   "test_rows": 6002,
-  "feature_count": 36,
+  "feature_count": 37,
   "feature_columns": [
     "LIMIT_BAL",
+    "SEX",
     "EDUCATION",
     "MARRIAGE",
     "AGE",

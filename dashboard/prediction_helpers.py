@@ -1,4 +1,4 @@
-"""Helpers for dashboard applicant input, prediction, and local explanations."""
+"""Helpers for UCI dashboard applicant input, prediction, and local explanations."""
 
 from __future__ import annotations
 
@@ -9,93 +9,77 @@ import pandas as pd
 import plotly.express as px
 import shap
 
+from src.dataset_adapters import (
+    BILL_AMOUNT_COLUMNS,
+    ENGINEERED_UCI_COLUMNS,
+    PAY_AMOUNT_COLUMNS,
+    PAY_STATUS_COLUMNS,
+    add_uci_credit_features,
+)
+
 USER_INPUT_FIELDS = [
-    "Age",
-    "Gender",
-    "Nationality",
-    "City",
-    "EmploymentStatus",
-    "AnnualIncome_AED",
-    "OtherObligations_AED",
-    "BureauScore",
-    "LoanType",
-    "LoanAmount_AED",
-    "LoanTenureMonths",
-    "InterestRate_pct",
-    "Unemployment_pct",
-    "Inflation_pct",
+    "LIMIT_BAL",
+    "SEX",
+    "EDUCATION",
+    "MARRIAGE",
+    "AGE",
+    *PAY_STATUS_COLUMNS,
+    *BILL_AMOUNT_COLUMNS,
+    *PAY_AMOUNT_COLUMNS,
 ]
 
 EXCLUDED_USER_INPUT_FIELDS = [
-    "EMI_AED",
-    "LoanToAnnualIncome",
-    "DebtToIncomeRatio",
-    "EMIToIncomeRatio",
-    "LoanBurdenRatio",
-    "PaymentStressScore",
-    "BehavioralRiskFlag",
-    "OnTimePayments_Last12M",
-    "MissedPayments_Last12M",
-    "MissedEMIs_Last6M",
-    "SalaryDropFlag",
-    "SpendingSpikeFlag",
-    "AvgMonthlyDebit_AED",
-    "StdMonthlyDebit_AED",
+    *ENGINEERED_UCI_COLUMNS,
+    "Default_Flag",
 ]
 
-CATEGORICAL_FIELDS = ["Gender", "Nationality", "City", "EmploymentStatus", "LoanType"]
-SENSITIVE_OR_NON_ACTIONABLE_FIELDS = {
-    "Age",
-    "Gender",
-    "Nationality",
-    "City",
-    "Unemployment_pct",
-    "Inflation_pct",
-    "LoanStartYear",
-    "LoanStartMonth",
-    "LoanStartQuarter",
-}
+CATEGORICAL_FIELDS = ["SEX", "EDUCATION", "MARRIAGE"]
+SENSITIVE_OR_NON_ACTIONABLE_FIELDS = {"SEX", "AGE", "MARRIAGE", "EDUCATION"}
 
 PRESET_NAMES = [
-    "Reference applicant",
-    "Low-risk salaried applicant",
-    "High-burden applicant",
-    "Borderline / medium-risk applicant",
+    "Reference cardholder",
+    "Low-risk repayment profile",
+    "High-delay profile",
+    "High-utilization profile",
 ]
 
 FEATURE_LABELS = {
-    "Age": "Age",
-    "Gender": "Gender",
-    "Nationality": "Nationality",
-    "City": "City",
-    "EmploymentStatus": "Employment Status",
-    "AnnualIncome_AED": "Annual Income",
-    "OtherObligations_AED": "Existing Obligations",
-    "BureauScore": "Bureau Score",
-    "LoanType": "Loan Type",
-    "LoanAmount_AED": "Loan Amount",
-    "LoanTenureMonths": "Loan Tenure",
-    "InterestRate_pct": "Interest Rate",
-    "Unemployment_pct": "Unemployment Rate",
-    "Inflation_pct": "Inflation Rate",
-    "EMI_AED": "EMI",
-    "LoanToAnnualIncome": "Loan-to-Income Ratio",
-    "ObligationsToIncome": "Obligations-to-Income Ratio",
-    "EMIToIncome": "EMI-to-Income Ratio",
-    "DebtToIncomeRatio": "Debt-to-Income Ratio",
-    "LoanBurdenRatio": "Loan Burden Ratio",
+    "LIMIT_BAL": "Credit Limit",
+    "SEX": "Sex",
+    "EDUCATION": "Education",
+    "MARRIAGE": "Marriage",
+    "AGE": "Age",
+    "PAY_0": "Most Recent Repayment Status",
+    "PAY_2": "Repayment Status 2",
+    "PAY_3": "Repayment Status 3",
+    "PAY_4": "Repayment Status 4",
+    "PAY_5": "Repayment Status 5",
+    "PAY_6": "Repayment Status 6",
+    "BILL_AMT1": "Most Recent Bill Amount",
+    "BILL_AMT2": "Bill Amount 2",
+    "BILL_AMT3": "Bill Amount 3",
+    "BILL_AMT4": "Bill Amount 4",
+    "BILL_AMT5": "Bill Amount 5",
+    "BILL_AMT6": "Bill Amount 6",
+    "PAY_AMT1": "Most Recent Payment Amount",
+    "PAY_AMT2": "Payment Amount 2",
+    "PAY_AMT3": "Payment Amount 3",
+    "PAY_AMT4": "Payment Amount 4",
+    "PAY_AMT5": "Payment Amount 5",
+    "PAY_AMT6": "Payment Amount 6",
+    "AvgBillToLimitRatio": "Average Bill-to-Limit Ratio",
+    "AvgPaymentToBillRatio": "Average Payment-to-Bill Ratio",
+    "RecentPaymentDelay": "Recent Payment Delay",
+    "MaxPaymentDelay": "Maximum Payment Delay",
+    "NumDelayedMonths": "Number of Delayed Months",
+    "AvgBillAmount": "Average Bill Amount",
+    "AvgPaymentAmount": "Average Payment Amount",
+    "PaymentToLimitRatio": "Payment-to-Limit Ratio",
 }
 
-
-def calculate_emi(principal: float, annual_interest_rate_pct: float, tenure_months: int) -> float:
-    principal = float(max(principal, 0.0))
-    tenure_months = int(max(tenure_months, 1))
-    monthly_rate = float(annual_interest_rate_pct) / 12.0 / 100.0
-
-    if monthly_rate > 0:
-        factor = (1 + monthly_rate) ** tenure_months
-        return principal * monthly_rate * factor / (factor - 1)
-    return principal / tenure_months
+SEX_OPTIONS = {1: "Male", 2: "Female"}
+EDUCATION_OPTIONS = {1: "Graduate school", 2: "University", 3: "High school", 4: "Other"}
+MARRIAGE_OPTIONS = {1: "Married", 2: "Single", 3: "Other"}
 
 
 def safe_ratio(numerator: float, denominator: float, fallback: float = 0.0) -> float:
@@ -112,71 +96,87 @@ def build_defaults(reference_table: pd.DataFrame) -> dict[str, Any]:
             defaults[column] = float(series.median()) if not series.empty else 0.0
         else:
             defaults[column] = str(series.mode().iloc[0]) if not series.empty else "Unknown"
+    defaults.setdefault("SEX", 2)
+    defaults.setdefault("EDUCATION", 2)
+    defaults.setdefault("MARRIAGE", 2)
     return defaults
 
 
-def _category_default(defaults: dict[str, Any], field: str) -> str:
-    return str(defaults.get(field, "Unknown"))
+def _numeric(defaults: dict[str, Any], field: str, fallback: float) -> float:
+    return float(defaults.get(field, fallback))
+
+
+def _base_reference(defaults: dict[str, Any]) -> dict[str, Any]:
+    reference = {
+        "LIMIT_BAL": _numeric(defaults, "LIMIT_BAL", 180000.0),
+        "SEX": int(defaults.get("SEX", 2)),
+        "EDUCATION": int(defaults.get("EDUCATION", 2)),
+        "MARRIAGE": int(defaults.get("MARRIAGE", 2)),
+        "AGE": int(_numeric(defaults, "AGE", 35.0)),
+    }
+    for column in PAY_STATUS_COLUMNS:
+        reference[column] = int(_numeric(defaults, column, 0.0))
+    for column in BILL_AMOUNT_COLUMNS:
+        reference[column] = _numeric(defaults, column, 35000.0)
+    for column in PAY_AMOUNT_COLUMNS:
+        reference[column] = _numeric(defaults, column, 2000.0)
+    return reference
 
 
 def build_applicant_presets(reference_table: pd.DataFrame) -> dict[str, dict[str, Any]]:
-    """Return demo-safe presets using only application-time user input fields."""
+    """Return demo-safe presets using UCI credit-card input fields."""
 
-    defaults = build_defaults(reference_table)
-    reference = {
-        "Age": int(defaults.get("Age", 35)),
-        "Gender": _category_default(defaults, "Gender"),
-        "Nationality": _category_default(defaults, "Nationality"),
-        "City": _category_default(defaults, "City"),
-        "EmploymentStatus": _category_default(defaults, "EmploymentStatus"),
-        "AnnualIncome_AED": float(defaults.get("AnnualIncome_AED", 180000.0)),
-        "OtherObligations_AED": float(defaults.get("OtherObligations_AED", 20000.0)),
-        "BureauScore": float(defaults.get("BureauScore", 650.0)),
-        "LoanType": _category_default(defaults, "LoanType"),
-        "LoanAmount_AED": float(defaults.get("LoanAmount_AED", 150000.0)),
-        "LoanTenureMonths": int(defaults.get("LoanTenureMonths", 36)),
-        "InterestRate_pct": float(defaults.get("InterestRate_pct", 10.0)),
-        "Unemployment_pct": float(defaults.get("Unemployment_pct", 4.0)),
-        "Inflation_pct": float(defaults.get("Inflation_pct", 3.0)),
-    }
-
+    reference = _base_reference(build_defaults(reference_table))
     low_risk = {
         **reference,
-        "Age": 38,
-        "EmploymentStatus": "Salaried",
-        "AnnualIncome_AED": 420000.0,
-        "OtherObligations_AED": 10000.0,
-        "BureauScore": 820.0,
-        "LoanAmount_AED": 90000.0,
-        "LoanTenureMonths": 36,
-        "InterestRate_pct": 7.5,
+        "LIMIT_BAL": 300000.0,
+        "PAY_0": -1,
+        "PAY_2": -1,
+        "PAY_3": 0,
+        "PAY_4": 0,
+        "PAY_5": 0,
+        "PAY_6": 0,
     }
-    high_burden = {
+    for bill_col in BILL_AMOUNT_COLUMNS:
+        low_risk[bill_col] = 25000.0
+    for pay_col in PAY_AMOUNT_COLUMNS:
+        low_risk[pay_col] = 8000.0
+
+    high_delay = {
         **reference,
-        "Age": 29,
-        "AnnualIncome_AED": 85000.0,
-        "OtherObligations_AED": 45000.0,
-        "BureauScore": 430.0,
-        "LoanAmount_AED": 260000.0,
-        "LoanTenureMonths": 24,
-        "InterestRate_pct": 16.5,
+        "LIMIT_BAL": 50000.0,
+        "PAY_0": 3,
+        "PAY_2": 2,
+        "PAY_3": 2,
+        "PAY_4": 1,
+        "PAY_5": 1,
+        "PAY_6": 0,
     }
-    borderline = {
+    for bill_col in BILL_AMOUNT_COLUMNS:
+        high_delay[bill_col] = 45000.0
+    for pay_col in PAY_AMOUNT_COLUMNS:
+        high_delay[pay_col] = 500.0
+
+    high_utilization = {
         **reference,
-        "Age": 34,
-        "AnnualIncome_AED": 185000.0,
-        "OtherObligations_AED": 28000.0,
-        "BureauScore": 635.0,
-        "LoanAmount_AED": 145000.0,
-        "LoanTenureMonths": 36,
-        "InterestRate_pct": 11.5,
+        "LIMIT_BAL": 80000.0,
+        "PAY_0": 1,
+        "PAY_2": 1,
+        "PAY_3": 0,
+        "PAY_4": 0,
+        "PAY_5": 0,
+        "PAY_6": 0,
     }
+    for bill_col in BILL_AMOUNT_COLUMNS:
+        high_utilization[bill_col] = 76000.0
+    for pay_col in PAY_AMOUNT_COLUMNS:
+        high_utilization[pay_col] = 1500.0
 
     return {
-        "Reference applicant": reference,
-        "Low-risk salaried applicant": low_risk,
-        "High-burden applicant": high_burden,
-        "Borderline / medium-risk applicant": borderline,
+        "Reference cardholder": reference,
+        "Low-risk repayment profile": low_risk,
+        "High-delay profile": high_delay,
+        "High-utilization profile": high_utilization,
     }
 
 
@@ -184,59 +184,22 @@ def build_applicant_model_row(
     user_input: dict[str, Any],
     reference_table: pd.DataFrame,
 ) -> tuple[pd.DataFrame, dict[str, float]]:
-    defaults = build_defaults(reference_table)
-    annual_income = float(user_input["AnnualIncome_AED"])
-    other_obligations = float(user_input["OtherObligations_AED"])
-    loan_amount = float(user_input["LoanAmount_AED"])
-    tenure_months = int(user_input["LoanTenureMonths"])
-    interest_rate_pct = float(user_input["InterestRate_pct"])
+    row = {}
+    for field in USER_INPUT_FIELDS:
+        row[field] = user_input[field]
 
-    emi = calculate_emi(loan_amount, interest_rate_pct, tenure_months)
-    fallback_loan_to_income = float(defaults.get("LoanToAnnualIncome", 0.0))
-    fallback_emi_to_income = float(defaults.get("EMIToIncome", 0.0))
-    fallback_obligations = float(defaults.get("ObligationsToIncome", 0.0))
+    row_frame = pd.DataFrame([row])
+    for column in USER_INPUT_FIELDS:
+        row_frame[column] = pd.to_numeric(row_frame[column], errors="coerce")
 
+    row_frame = add_uci_credit_features(row_frame)
     computed_ratios = {
-        "EMI_AED": float(emi),
-        "LoanToAnnualIncome": safe_ratio(loan_amount, annual_income, fallback_loan_to_income),
-        "DebtToIncomeRatio": safe_ratio(
-            other_obligations + emi * 12.0,
-            annual_income,
-            fallback_obligations,
-        ),
-        "EMIToIncomeRatio": safe_ratio(emi * 12.0, annual_income, fallback_emi_to_income),
-        "LoanBurdenRatio": safe_ratio(loan_amount, annual_income, fallback_loan_to_income),
+        column: float(row_frame.iloc[0][column])
+        for column in ENGINEERED_UCI_COLUMNS
+        if column in row_frame.columns
     }
 
-    applicant_row = {
-        "Age": int(user_input["Age"]),
-        "Gender": str(user_input["Gender"]),
-        "Nationality": str(user_input["Nationality"]),
-        "City": str(user_input["City"]),
-        "EmploymentStatus": str(user_input["EmploymentStatus"]),
-        "AnnualIncome_AED": annual_income,
-        "OtherObligations_AED": other_obligations,
-        "BureauScore": float(user_input["BureauScore"]),
-        "LoanType": str(user_input["LoanType"]),
-        "LoanAmount_AED": loan_amount,
-        "LoanTenureMonths": tenure_months,
-        "InterestRate_pct": interest_rate_pct,
-        "LoanStartYear": float(defaults.get("LoanStartYear", 0.0)),
-        "LoanStartMonth": float(defaults.get("LoanStartMonth", 0.0)),
-        "LoanStartQuarter": float(defaults.get("LoanStartQuarter", 0.0)),
-        "Unemployment_pct": float(user_input["Unemployment_pct"]),
-        "Inflation_pct": float(user_input["Inflation_pct"]),
-        "EMI_AED": computed_ratios["EMI_AED"],
-        "LoanToAnnualIncome": computed_ratios["LoanToAnnualIncome"],
-        "ObligationsToIncome": safe_ratio(
-            other_obligations,
-            annual_income,
-            fallback_obligations,
-        ),
-        "EMIToIncome": safe_ratio(emi, annual_income, fallback_emi_to_income),
-    }
-
-    row_frame = pd.DataFrame([applicant_row])
+    defaults = build_defaults(reference_table)
     for column in reference_table.columns:
         if column not in row_frame.columns:
             row_frame[column] = defaults[column]
@@ -262,6 +225,20 @@ def humanize_feature_name(transformed_name: str) -> tuple[str, str]:
     return transformed_name, FEATURE_LABELS.get(transformed_name, transformed_name)
 
 
+def _relation_to_median(
+    raw_feature: str,
+    applicant_df: pd.DataFrame,
+    reference_table: pd.DataFrame,
+) -> str:
+    current_value = applicant_df.iloc[0].get(raw_feature)
+    if raw_feature not in reference_table.columns or not pd.api.types.is_numeric_dtype(
+        reference_table[raw_feature]
+    ):
+        return "not comparable"
+    median_value = float(reference_table[raw_feature].median())
+    return "above" if float(current_value) > median_value else "below"
+
+
 def interpret_driver(
     transformed_name: str,
     shap_value: float,
@@ -270,68 +247,45 @@ def interpret_driver(
 ) -> str:
     raw_feature, readable_name = humanize_feature_name(transformed_name)
     risk_direction = "higher" if shap_value > 0 else "lower"
+    relation = _relation_to_median(raw_feature, applicant_df, reference_table)
 
-    if raw_feature in CATEGORICAL_FIELDS and transformed_name.startswith("cat__"):
-        feature_label = FEATURE_LABELS.get(raw_feature, raw_feature).lower()
+    if raw_feature in PAY_STATUS_COLUMNS or raw_feature in {
+        "RecentPaymentDelay",
+        "MaxPaymentDelay",
+        "NumDelayedMonths",
+    }:
+        if shap_value > 0:
+            return "Recent repayment delay contributes toward higher predicted default risk in this fitted model."
+        return "Timelier recent repayment contributes toward lower predicted default risk in this fitted model."
+    if raw_feature.startswith("BillToLimitRatio") or raw_feature == "AvgBillToLimitRatio":
+        if shap_value > 0 and relation == "above":
+            return "Higher bill-to-limit utilization contributes toward higher predicted risk in this fitted model."
         return (
-            f"For this applicant, the {feature_label} feature contributes toward "
+            "Bill-to-limit utilization contributes toward "
             f"{risk_direction} predicted risk in this fitted model."
         )
-
-    current_value = applicant_df.iloc[0].get(raw_feature)
-    if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(
-        reference_table[raw_feature]
-    ):
-        median_value = float(reference_table[raw_feature].median())
-        relation = "above" if float(current_value) > median_value else "below"
-        if raw_feature == "BureauScore":
-            if shap_value > 0 and relation == "below":
-                return (
-                    "Lower bureau score contributes toward higher predicted risk in this "
-                    "fitted model."
-                )
-            if shap_value < 0 and relation == "above":
-                return (
-                    "Higher bureau score contributes toward lower predicted risk in this "
-                    "fitted model."
-                )
-            return (
-                "For this applicant, the bureau-score feature contributes toward "
-                f"{risk_direction} predicted risk in this fitted model."
-            )
-        if raw_feature in {"LoanToAnnualIncome", "LoanBurdenRatio"}:
-            return (
-                "For this applicant, the loan-to-income feature contributes toward "
-                f"{risk_direction} predicted risk in this fitted model."
-            )
-        if raw_feature in {"OtherObligations_AED", "ObligationsToIncome"}:
-            return (
-                "For this applicant, the existing-obligations feature contributes toward "
-                f"{risk_direction} predicted risk in this fitted model."
-            )
-        if raw_feature in {"EMI_AED", "EMIToIncome"}:
-            if shap_value > 0 and relation == "above":
-                return (
-                    "Higher repayment burden contributes toward higher predicted risk in "
-                    "this fitted model."
-                )
-            return (
-                "For this applicant, the repayment-burden feature contributes toward "
-                f"{risk_direction} predicted risk in this fitted model."
-            )
-        if raw_feature == "InterestRate_pct" and shap_value < 0:
-            return (
-                "For this applicant, the interest-rate feature contributes slightly toward "
-                "lower predicted risk in this fitted model."
-            )
+    if raw_feature in {"AvgPaymentToBillRatio", "PaymentToLimitRatio"}:
+        if shap_value < 0:
+            return "Stronger repayment relative to bills contributes toward lower predicted risk in this fitted model."
+        return "Low repayment relative to bill or limit contributes toward higher predicted risk in this fitted model."
+    if raw_feature in BILL_AMOUNT_COLUMNS or raw_feature == "AvgBillAmount":
         return (
-            f"For this applicant, the {readable_name.lower()} feature contributes toward "
+            "Outstanding bill amount contributes toward "
             f"{risk_direction} predicted risk in this fitted model."
+        )
+    if raw_feature in PAY_AMOUNT_COLUMNS or raw_feature == "AvgPaymentAmount":
+        return (
+            "Payment amount pattern contributes toward "
+            f"{risk_direction} predicted risk in this fitted model."
+        )
+    if raw_feature == "LIMIT_BAL":
+        return (
+            f"Credit limit contributes toward {risk_direction} predicted risk in this fitted model."
         )
 
     return (
-        f"For this fitted model, {readable_name.lower()} contributes toward "
-        f"{risk_direction} predicted risk."
+        f"For this applicant, the {readable_name.lower()} feature contributes toward "
+        f"{risk_direction} predicted risk in this fitted model."
     )
 
 
@@ -343,69 +297,29 @@ def driver_reason_text(
 ) -> str:
     raw_feature, readable_name = humanize_feature_name(transformed_name)
     contribution = "risk-increasing" if shap_value > 0 else "risk-reducing"
+    relation = _relation_to_median(raw_feature, applicant_df, reference_table)
 
-    if raw_feature in CATEGORICAL_FIELDS and transformed_name.startswith("cat__"):
-        feature_label = FEATURE_LABELS.get(raw_feature, raw_feature).lower()
+    if raw_feature in PAY_STATUS_COLUMNS or raw_feature in {
+        "RecentPaymentDelay",
+        "MaxPaymentDelay",
+        "NumDelayedMonths",
+    }:
         return (
-            f"the fitted model assigns a {contribution} contribution to the {feature_label} feature"
+            "recent repayment delay is higher"
+            if shap_value > 0
+            else "recent repayment history is stronger"
         )
-
-    current_value = applicant_df.iloc[0].get(raw_feature)
-    if raw_feature in reference_table.columns and pd.api.types.is_numeric_dtype(
-        reference_table[raw_feature]
-    ):
-        median_value = float(reference_table[raw_feature].median())
-        relation = "above" if float(current_value) > median_value else "below"
-        if raw_feature == "BureauScore":
-            if shap_value > 0 and relation == "below":
-                return "lower bureau score contributes toward higher risk in the fitted model"
-            if shap_value < 0 and relation == "above":
-                return "higher bureau score contributes toward lower risk in the fitted model"
-            return f"the fitted model assigns a {contribution} contribution to bureau score"
-        if raw_feature in {"LoanToAnnualIncome", "LoanAmount_AED", "EMI_AED", "EMIToIncome"}:
-            if shap_value > 0 and relation == "above":
-                return "higher repayment burden contributes toward higher risk in the fitted model"
-            if shap_value < 0 and relation == "below":
-                return "lower repayment burden contributes toward lower risk in the fitted model"
-            return (
-                f"the fitted model assigns a {contribution} contribution to the "
-                "repayment-burden feature"
-            )
-        if raw_feature in {"OtherObligations_AED", "ObligationsToIncome"}:
-            if shap_value > 0 and relation == "above":
-                return (
-                    "higher existing obligations contribute toward higher risk in the fitted model"
-                )
-            if shap_value < 0 and relation == "below":
-                return "lower existing obligations contribute toward lower risk in the fitted model"
-            return (
-                f"the fitted model assigns a {contribution} contribution to the "
-                "existing-obligations feature"
-            )
-        if raw_feature == "InterestRate_pct":
-            qualifier = "slightly " if shap_value < 0 else ""
-            return (
-                f"the fitted model assigns a {qualifier}{contribution} contribution to the "
-                "interest-rate feature"
-            )
-        if raw_feature == "AnnualIncome_AED":
-            if shap_value > 0 and relation == "below":
-                return "lower annual income contributes toward higher risk in the fitted model"
-            if shap_value < 0 and relation == "above":
-                return "higher annual income contributes toward lower risk in the fitted model"
-            return (
-                f"the fitted model assigns a {contribution} contribution to the "
-                "annual-income feature"
-            )
+    if raw_feature.startswith("BillToLimitRatio") or raw_feature == "AvgBillToLimitRatio":
+        if relation == "above" and shap_value > 0:
+            return "bill-to-limit utilization is high"
+        return f"bill-to-limit utilization is {contribution}"
+    if raw_feature in {"AvgPaymentToBillRatio", "PaymentToLimitRatio"}:
         return (
-            f"the fitted model assigns a {contribution} contribution to the "
-            f"{readable_name.lower()} feature"
+            "repayment relative to bills is weak"
+            if shap_value > 0
+            else "repayment relative to bills is stronger"
         )
-
-    return (
-        f"the fitted model assigns a {contribution} contribution to the "
-        f"{readable_name.lower()} feature"
-    )
+    return f"the fitted model assigns a {contribution} contribution to {readable_name.lower()}"
 
 
 def compute_local_shap_analysis(
@@ -436,11 +350,6 @@ def compute_local_shap_analysis(
     drivers = []
     for transformed_name, shap_value in contributions.items():
         raw_feature, readable_name = humanize_feature_name(transformed_name)
-        if (
-            transformed_name.startswith("cat__")
-            and applicant_df.iloc[0].get(raw_feature) not in readable_name
-        ):
-            continue
         drivers.append(
             {
                 "feature": transformed_name,
@@ -496,7 +405,7 @@ def build_local_shap_figure(plot_df: pd.DataFrame):
             "Increasing Risk": "#b22222",
             "Reducing Risk": "#2f6b2f",
         },
-        title="Current Applicant SHAP Contributions",
+        title="Current Cardholder SHAP Contributions",
         labels={"shap_value": "SHAP contribution", "display_name": "Feature"},
     )
 
@@ -511,10 +420,10 @@ def risk_band(probability: float) -> str:
 
 def decision_support_recommendation(probability: float) -> str:
     if probability < 0.30:
-        return "Likely Accept / Low Review Priority"
+        return "Low predicted default risk / low review priority"
     if probability <= 0.60:
-        return "Manual Review Recommended"
-    return "High Risk / Strong Review Required"
+        return "Manual review recommended"
+    return "High predicted default risk / strong review required"
 
 
 def _select_actionable_positive_drivers(drivers: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -534,15 +443,13 @@ def generate_plain_english_explanation(
     label = risk_band(probability).lower()
     if probability < 0.30:
         actionable_drivers = _select_actionable_positive_drivers(negative_drivers)[:3]
-        lead_in = f"Your predicted default risk is {label} mainly because "
+        lead_in = f"The predicted next-month default risk is {label} mainly because "
     else:
         actionable_drivers = _select_actionable_positive_drivers(positive_drivers)[:3]
-        lead_in = f"Your predicted default risk is {label} mainly because "
+        lead_in = f"The predicted next-month default risk is {label} mainly because "
 
     if not actionable_drivers:
-        return (
-            f"Your predicted default risk is {label} based on the overall application-time profile."
-        )
+        return f"The predicted next-month default risk is {label} based on the overall credit-card profile."
 
     reasons = [
         driver.get("reason_text", driver["display_name"].lower()) for driver in actionable_drivers
@@ -558,23 +465,29 @@ def generate_counterfactual_guidance(
     guidance: list[str] = []
     for driver in _select_actionable_positive_drivers(positive_drivers):
         raw_feature = driver["raw_feature"]
-        if raw_feature == "BureauScore":
-            guidance.append("Improving Bureau Score may reduce predicted risk.")
-        elif raw_feature in {"LoanToAnnualIncome", "LoanAmount_AED", "EMI_AED", "EMIToIncome"}:
+        if raw_feature in PAY_STATUS_COLUMNS or raw_feature in {
+            "RecentPaymentDelay",
+            "MaxPaymentDelay",
+            "NumDelayedMonths",
+        }:
             guidance.append(
-                "Reducing the requested loan amount, extending tenure, or increasing declared income may reduce predicted risk."
+                "Maintaining timely repayment over recent months may reduce predicted default risk."
             )
-        elif raw_feature in {"OtherObligations_AED", "ObligationsToIncome"}:
+        elif raw_feature.startswith("BillToLimitRatio") or raw_feature in {
+            "AvgBillToLimitRatio",
+            "AvgBillAmount",
+        }:
             guidance.append(
-                "Reducing existing obligations may improve affordability and may reduce predicted risk."
+                "Lowering revolving utilization or bill balances relative to the credit limit may reduce predicted risk."
             )
-        elif raw_feature == "InterestRate_pct":
-            guidance.append("Securing a lower interest rate may reduce predicted risk.")
-        elif raw_feature == "AnnualIncome_AED":
-            guidance.append("Demonstrating stronger verifiable income may reduce predicted risk.")
-        elif raw_feature == "EmploymentStatus":
+        elif raw_feature in {
+            "AvgPaymentToBillRatio",
+            "PaymentToLimitRatio",
+            "AvgPaymentAmount",
+            *PAY_AMOUNT_COLUMNS,
+        }:
             guidance.append(
-                "Providing stronger employment stability evidence may reduce predicted risk."
+                "Increasing repayment amounts relative to outstanding bills may reduce predicted risk."
             )
 
     deduped_guidance = list(dict.fromkeys(guidance))
@@ -582,5 +495,5 @@ def generate_counterfactual_guidance(
         return deduped_guidance[:3]
 
     return [
-        "Adjusting loan burden, affordability, or credit quality may reduce predicted risk.",
+        "Reducing recent repayment delays, lowering bill-to-limit utilization, and strengthening repayment relative to bill amounts may reduce predicted risk.",
     ]

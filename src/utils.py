@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -10,7 +11,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from .data_api_loader import DEFAULT_LOCAL_DATASET, load_dataset
+from .data_api_loader import DEFAULT_UCI_DATASET_NAME, load_dataset
+from .dataset_adapters import TARGET_COL
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_RAW_DIR = ROOT_DIR / "data" / "raw"
@@ -33,6 +35,7 @@ def ensure_directories() -> None:
         REPORTS_DIR / "explainability_reports" / "behavioral_model",
         REPORTS_DIR / "leakage_audit",
         REPORTS_DIR / "model_validation",
+        REPORTS_DIR / "data_audit",
     ]:
         path.mkdir(parents=True, exist_ok=True)
 
@@ -53,10 +56,20 @@ def detect_dataset_file(data_dir: Optional[Path] = None) -> Path:
 
 
 def load_dataset_auto(data_dir: Optional[Path] = None) -> Tuple[pd.DataFrame, Path]:
-    """Load the default project dataset through the shared data loader."""
-    dataset_path = detect_dataset_file(data_dir) if data_dir else DEFAULT_LOCAL_DATASET
-    df, _ = load_dataset(source="local", path=dataset_path)
-    return df, dataset_path
+    """Load the current primary project dataset through the shared data loader."""
+    if data_dir is not None:
+        dataset_path = detect_dataset_file(data_dir)
+        df, _ = load_dataset(source="local", path=dataset_path)
+        return df, dataset_path
+
+    df = _load_primary_uci_dataset_cached().copy()
+    return df, Path(f"uci://{DEFAULT_UCI_DATASET_NAME}")
+
+
+@lru_cache(maxsize=1)
+def _load_primary_uci_dataset_cached() -> pd.DataFrame:
+    df, _ = load_dataset(source="uci", dataset_name=DEFAULT_UCI_DATASET_NAME)
+    return df.copy()
 
 
 def project_relative_path(path: Path | str | None) -> str | None:
@@ -69,7 +82,7 @@ def project_relative_path(path: Path | str | None) -> str | None:
         return str(resolved)
 
 
-def normalize_target(df: pd.DataFrame, target_col: str = "Default_Flag") -> pd.DataFrame:
+def normalize_target(df: pd.DataFrame, target_col: str = TARGET_COL) -> pd.DataFrame:
     """Ensure target column is binary integer where possible."""
     if target_col not in df.columns:
         raise KeyError(f"Target column '{target_col}' not found in dataset.")
@@ -83,7 +96,7 @@ def normalize_target(df: pd.DataFrame, target_col: str = "Default_Flag") -> pd.D
 
 def infer_protected_attribute(df: pd.DataFrame) -> str:
     """Pick a default protected attribute for fairness analysis."""
-    for col in ["Gender", "Nationality", "City", "EmploymentStatus"]:
+    for col in ["SEX", "AGE", "MARRIAGE", "EDUCATION", "Gender", "Nationality", "City"]:
         if col in df.columns:
             return col
     raise KeyError(

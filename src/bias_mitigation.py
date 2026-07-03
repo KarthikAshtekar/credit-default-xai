@@ -12,7 +12,6 @@ from sklearn.base import BaseEstimator, ClassifierMixin, clone
 
 from .data_preprocessing import (
     FEATURE_SET_APPLICATION,
-    FEATURE_SET_BEHAVIORAL,
     FEATURE_SET_FULL_DIAGNOSTIC,
     TARGET_COL,
     get_dataset_split,
@@ -50,7 +49,7 @@ def _aif360_reweighing_weights(y: pd.Series, sensitive: pd.Series):
     try:
         from aif360.algorithms.preprocessing import Reweighing
         from aif360.datasets import BinaryLabelDataset
-    except ImportError:
+    except Exception:
         return None
 
     tmp = pd.DataFrame(
@@ -134,8 +133,6 @@ def apply_threshold_optimizer(model, X_train, y_train, sensitive_train):
 
 def _model_context(model_path: Path) -> tuple[str, Path]:
     stem = model_path.stem
-    if "behavioral" in stem:
-        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "fairness_reports" / "behavioral_model"
     if "full_diagnostic" in stem:
         return FEATURE_SET_FULL_DIAGNOSTIC, REPORTS_DIR / "fairness_reports" / "full_diagnostic"
     return FEATURE_SET_APPLICATION, REPORTS_DIR / "fairness_reports" / "application_model"
@@ -149,9 +146,9 @@ def _approval_fairness(y_true_default, y_pred_default, sensitive) -> Dict[str, f
 
 def run(model_path: Path | None = None) -> Dict:
     model_path = model_path or (
-        MODELS_DIR / "xgboost_application.pkl"
-        if (MODELS_DIR / "xgboost_application.pkl").exists()
-        else MODELS_DIR / "logistic_application.pkl"
+        MODELS_DIR / "xgboost_public.pkl"
+        if (MODELS_DIR / "xgboost_public.pkl").exists()
+        else MODELS_DIR / "logistic_public.pkl"
     )
     feature_set, report_dir = _model_context(model_path)
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -172,27 +169,34 @@ def run(model_path: Path | None = None) -> Dict:
     perf_base = evaluate_classification(y_test, y_pred_base, y_proba_base)
     fair_base = _approval_fairness(y_test.values, y_pred_base, s_test.values)
 
-    # Reweighing
-    rw_model = apply_reweighing(base_model, X_train, y_train, s_train)
-    y_pred_rw = rw_model.predict(X_test)
-    y_proba_rw = rw_model.predict_proba(X_test)[:, 1]
-    perf_rw = evaluate_classification(y_test, y_pred_rw, y_proba_rw)
-    fair_rw = _approval_fairness(y_test.values, y_pred_rw, s_test.values)
-
-    # Post-processing with Fairlearn
-    postproc = apply_threshold_optimizer(base_model, X_train, y_train, s_train)
-    y_pred_post = postproc.predict(X_test, sensitive_features=np.asarray(s_test))
-    y_proba_post = y_pred_post.astype(float)
-    perf_post = evaluate_classification(y_test, y_pred_post, y_proba_post)
-    fair_post = _approval_fairness(y_test.values, y_pred_post, s_test.values)
-
     summary = {
         "model": project_relative_path(model_path),
         "protected_attribute": protected_col,
+        "favorable_outcome": "predicted non-default / low-risk approval decision",
         "baseline": {"performance": perf_base, "fairness": fair_base},
-        "reweighing": {"performance": perf_rw, "fairness": fair_rw},
-        "fairlearn_postprocessing": {"performance": perf_post, "fairness": fair_post},
     }
+
+    try:
+        rw_model = apply_reweighing(base_model, X_train, y_train, s_train)
+        y_pred_rw = rw_model.predict(X_test)
+        y_proba_rw = rw_model.predict_proba(X_test)[:, 1]
+        summary["reweighing"] = {
+            "performance": evaluate_classification(y_test, y_pred_rw, y_proba_rw),
+            "fairness": _approval_fairness(y_test.values, y_pred_rw, s_test.values),
+        }
+    except Exception as exc:
+        summary["reweighing"] = {"skipped": True, "reason": str(exc)}
+
+    try:
+        postproc = apply_threshold_optimizer(base_model, X_train, y_train, s_train)
+        y_pred_post = postproc.predict(X_test, sensitive_features=np.asarray(s_test))
+        y_proba_post = y_pred_post.astype(float)
+        summary["fairlearn_postprocessing"] = {
+            "performance": evaluate_classification(y_test, y_pred_post, y_proba_post),
+            "fairness": _approval_fairness(y_test.values, y_pred_post, s_test.values),
+        }
+    except Exception as exc:
+        summary["fairlearn_postprocessing"] = {"skipped": True, "reason": str(exc)}
 
     save_json(
         summary,
@@ -201,7 +205,10 @@ def run(model_path: Path | None = None) -> Dict:
 
     rows = []
     for method, block in summary.items():
-        if method in {"model", "protected_attribute"}:
+        if method in {"model", "protected_attribute", "favorable_outcome"}:
+            continue
+        if block.get("skipped"):
+            rows.append({"method": method, "skipped": True, "reason": block["reason"]})
             continue
         row = {"method": method}
         row.update({f"perf_{k}": v for k, v in block["performance"].items()})

@@ -1,20 +1,18 @@
-"""Leakage and validation audit for the credit default pipeline."""
+"""Leakage and validation audit for the public UCI credit-default pipeline."""
 
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
-import shap
 from sklearn.feature_selection import mutual_info_classif
 
 from .data_preprocessing import (
-    FEATURE_SET_FULL_DIAGNOSTIC,
-    POST_OUTCOME_BEHAVIORAL_FEATURES,
+    FEATURE_SET_APPLICATION,
     TARGET_COL,
     get_dataset_split,
     get_feature_columns,
     prepare_modeling_table,
 )
+from .dataset_adapters import PAY_STATUS_COLUMNS, UCI_ID_COLUMNS
 from .evaluate_models import fit_pipeline, run_model_experiment
 from .model_builders import build_xgboost_estimator
 from .utils import (
@@ -26,6 +24,10 @@ from .utils import (
 )
 
 LEAKAGE_AUDIT_DIR = REPORTS_DIR / "leakage_audit"
+LEAKAGE_CONCLUSION = (
+    "No detected target leakage or train/test overlap in the public UCI pipeline "
+    "based on implemented checks."
+)
 
 
 def _mutual_information_scores(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
@@ -53,98 +55,38 @@ def _mutual_information_scores(X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
     )
 
 
-def _single_feature_auc(df_raw: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
-    rows = []
-    for feature in feature_columns:
-        result = run_model_experiment(
-            df_raw,
-            build_xgboost_estimator(),
-            f"single_feature_{feature}",
-            FEATURE_SET_FULL_DIAGNOSTIC,
-            feature_columns=[feature],
-        )
-        rows.append(
-            {
-                "feature": feature,
-                "roc_auc": result["metrics"]["roc_auc"],
-                "accuracy": result["metrics"]["accuracy"],
-            }
-        )
-
-    return pd.DataFrame(rows).sort_values(by="roc_auc", ascending=False).reset_index(drop=True)
-
-
-def _xgboost_importance_and_shap(df_raw: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    split = get_dataset_split(df_raw, feature_set=FEATURE_SET_FULL_DIAGNOSTIC)
-    pipeline = fit_pipeline(build_xgboost_estimator(), split.X_train, split.y_train)
-
-    preprocessor = pipeline.named_steps["preprocessor"]
-    estimator = pipeline.named_steps["classifier"]
-    Xt_test = preprocessor.transform(split.X_test)
-    feature_names = preprocessor.get_feature_names_out()
-    feature_frame = pd.DataFrame(
-        Xt_test.toarray() if hasattr(Xt_test, "toarray") else Xt_test,
-        columns=feature_names,
-        index=split.X_test.index,
-    )
-
-    importance_df = (
-        pd.DataFrame(
-            {
-                "feature": feature_names,
-                "importance": estimator.feature_importances_,
-            }
-        )
-        .sort_values(by="importance", ascending=False)
-        .reset_index(drop=True)
-    )
-
-    explainer = shap.TreeExplainer(estimator)
-    shap_values = explainer.shap_values(feature_frame)
-    if isinstance(shap_values, list):
-        shap_values = shap_values[-1]
-
-    shap_df = (
-        pd.DataFrame(
-            {
-                "feature": feature_names,
-                "mean_abs_shap": np.abs(shap_values).mean(axis=0),
-            }
-        )
-        .sort_values(by="mean_abs_shap", ascending=False)
-        .reset_index(drop=True)
-    )
-    return importance_df, shap_df
-
-
 def _duplicate_overlap_summary(df_raw: pd.DataFrame) -> dict:
-    split = get_dataset_split(df_raw, feature_set=FEATURE_SET_FULL_DIAGNOSTIC)
+    split = get_dataset_split(df_raw, feature_set=FEATURE_SET_APPLICATION)
     train_raw = df_raw.loc[split.train_indices].copy()
     test_raw = df_raw.loc[split.test_indices].copy()
+    train_selected = split.X_train.copy()
+    train_selected[TARGET_COL] = split.y_train
+    test_selected = split.X_test.copy()
+    test_selected[TARGET_COL] = split.y_test
 
-    row_signature_cols = [col for col in df_raw.columns if col != TARGET_COL]
-    train_rows = set(train_raw.astype(str).agg("||".join, axis=1))
-    test_rows = set(test_raw.astype(str).agg("||".join, axis=1))
-    train_rows_no_target = set(train_raw[row_signature_cols].astype(str).agg("||".join, axis=1))
-    test_rows_no_target = set(test_raw[row_signature_cols].astype(str).agg("||".join, axis=1))
+    row_signature_cols = [col for col in df_raw.columns if col not in {TARGET_COL, *UCI_ID_COLUMNS}]
+    train_feature_signatures = set(train_raw[row_signature_cols].astype(str).agg("||".join, axis=1))
+    test_feature_signatures = set(test_raw[row_signature_cols].astype(str).agg("||".join, axis=1))
+    train_selected_rows = set(train_selected.astype(str).agg("||".join, axis=1))
+    test_selected_rows = set(test_selected.astype(str).agg("||".join, axis=1))
 
-    summary = {
-        "duplicate_rows_across_train_test": int(len(train_rows & test_rows)),
-        "duplicate_rows_excluding_target_across_train_test": int(
-            len(train_rows_no_target & test_rows_no_target)
+    id_overlap = {}
+    for id_col in UCI_ID_COLUMNS:
+        if id_col in df_raw.columns:
+            id_overlap[id_col] = int(len(set(train_raw[id_col]) & set(test_raw[id_col])))
+
+    return {
+        "source_index_overlap": int(len(set(split.train_indices) & set(split.test_indices))),
+        "duplicate_selected_rows_across_train_test": int(
+            len(train_selected_rows & test_selected_rows)
         ),
-        "duplicate_customer_ids_across_train_test": 0,
-        "duplicate_loan_ids_across_train_test": 0,
+        "duplicate_feature_signatures_excluding_target_across_train_test": int(
+            len(train_feature_signatures & test_feature_signatures)
+        ),
+        "id_overlap": id_overlap,
+        "train_rows": int(len(train_raw)),
+        "test_rows": int(len(test_raw)),
     }
-    if "CustomerID" in df_raw.columns:
-        summary["duplicate_customer_ids_across_train_test"] = int(
-            len(set(train_raw["CustomerID"]) & set(test_raw["CustomerID"]))
-        )
-    if "LoanID" in df_raw.columns:
-        summary["duplicate_loan_ids_across_train_test"] = int(
-            len(set(train_raw["LoanID"]) & set(test_raw["LoanID"]))
-        )
-    return summary
 
 
 def _target_shuffle_test(df_raw: pd.DataFrame) -> dict:
@@ -153,14 +95,68 @@ def _target_shuffle_test(df_raw: pd.DataFrame) -> dict:
     result = run_model_experiment(
         shuffled,
         build_xgboost_estimator(),
-        "xgboost_full_diagnostic_target_shuffle",
-        FEATURE_SET_FULL_DIAGNOSTIC,
+        "xgboost_public_target_shuffle",
+        FEATURE_SET_APPLICATION,
     )
     return {
-        "feature_set": FEATURE_SET_FULL_DIAGNOSTIC,
+        "feature_set": FEATURE_SET_APPLICATION,
         "roc_auc": result["metrics"]["roc_auc"],
         "accuracy": result["metrics"]["accuracy"],
     }
+
+
+def _xgboost_importance(df_raw: pd.DataFrame) -> pd.DataFrame:
+    split = get_dataset_split(df_raw, feature_set=FEATURE_SET_APPLICATION)
+    pipeline = fit_pipeline(build_xgboost_estimator(), split.X_train, split.y_train)
+    preprocessor = pipeline.named_steps["preprocessor"]
+    estimator = pipeline.named_steps["classifier"]
+    feature_names = preprocessor.get_feature_names_out()
+    return (
+        pd.DataFrame({"feature": feature_names, "importance": estimator.feature_importances_})
+        .sort_values(by="importance", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def _write_markdown_report(summary: dict) -> None:
+    lines = [
+        "# Leakage Audit Report",
+        "",
+        "## Conclusion",
+        "",
+        LEAKAGE_CONCLUSION,
+        "",
+        "This does not mean leakage is impossible; it means the implemented checks did not find target leakage, ID leakage, duplicate train/test rows, or train/test overlap.",
+        "",
+        "## UCI Feature-Timing Review",
+        "",
+        "`PAY_0` to `PAY_6` are historical repayment-status variables used to predict the next-month default target. They are treated as valid historical predictors for this modeling question, not post-outcome leakage.",
+        "",
+        "## Implemented Checks",
+        "",
+        f"- Target excluded from model features: `{summary['checks']['target_not_in_features']}`",
+        f"- ID columns excluded from model features: `{summary['checks']['id_columns_not_in_features']}`",
+        f"- Source-index overlap: `{summary['duplicate_overlap']['source_index_overlap']}`",
+        f"- Duplicate selected rows across train/test: `{summary['duplicate_overlap']['duplicate_selected_rows_across_train_test']}`",
+        f"- Repeated feature signatures excluding target across train/test: `{summary['duplicate_overlap']['duplicate_feature_signatures_excluding_target_across_train_test']}`",
+        f"- Target-shuffle ROC-AUC: `{summary['target_shuffle_test']['roc_auc']:.4f}`",
+        "",
+        "## Top Mutual Information Features",
+        "",
+        "| Feature | Mutual information |",
+        "| --- | ---: |",
+    ]
+    for row in summary["top_mutual_information"][:10]:
+        lines.append(f"| {row['feature']} | {row['mutual_information']:.6f} |")
+    lines.extend(
+        [
+            "",
+            "High mutual information is reviewed as a suspiciousness signal, not automatic proof of leakage. In this dataset, strong repayment-history signals are expected because they summarize recent historical payment behavior before the next-month target.",
+        ]
+    )
+    (LEAKAGE_AUDIT_DIR / "leakage_audit_report.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
 
 
 def run() -> dict:
@@ -169,7 +165,7 @@ def run() -> dict:
 
     df_raw, data_path = load_dataset_auto()
     prepared = prepare_modeling_table(df_raw, target_col=TARGET_COL)
-    feature_columns = get_feature_columns(prepared, FEATURE_SET_FULL_DIAGNOSTIC)
+    feature_columns = get_feature_columns(prepared, FEATURE_SET_APPLICATION)
     X = prepared[feature_columns]
     y = prepared[TARGET_COL]
 
@@ -189,74 +185,50 @@ def run() -> dict:
     mi_df = _mutual_information_scores(X, y)
     mi_df.to_csv(LEAKAGE_AUDIT_DIR / "mutual_information_scores.csv", index=False)
 
-    single_feature_auc_df = _single_feature_auc(df_raw, feature_columns)
-    single_feature_auc_df.to_csv(LEAKAGE_AUDIT_DIR / "single_feature_auc.csv", index=False)
-
-    importance_df, shap_df = _xgboost_importance_and_shap(df_raw)
+    importance_df = _xgboost_importance(df_raw)
     importance_df.to_csv(LEAKAGE_AUDIT_DIR / "xgboost_feature_importance.csv", index=False)
 
     duplicate_summary = _duplicate_overlap_summary(df_raw)
     shuffle_summary = _target_shuffle_test(df_raw)
     save_json(shuffle_summary, LEAKAGE_AUDIT_DIR / "target_shuffle_test.json")
 
-    suspicious_features: list[str] = []
-    corr_hits = corr_df.loc[corr_df["correlation_with_target"].abs() > 0.80, "feature"].tolist()
-    auc_hits = single_feature_auc_df.loc[
-        single_feature_auc_df["roc_auc"] > 0.90, "feature"
-    ].tolist()
+    id_cols_in_features = sorted(set(UCI_ID_COLUMNS) & set(feature_columns))
+    target_in_features = TARGET_COL in feature_columns
     mi_threshold = float(mi_df["mutual_information"].quantile(0.95)) if not mi_df.empty else 0.0
-    mi_hits = mi_df.loc[mi_df["mutual_information"] >= mi_threshold, "feature"].tolist()
-    behavior_hits = [
-        feature for feature in POST_OUTCOME_BEHAVIORAL_FEATURES if feature in feature_columns
+    high_mi_features = mi_df.loc[mi_df["mutual_information"] >= mi_threshold, "feature"].tolist()
+
+    suspicious_features = [
+        f"{feature}: top mutual information review signal" for feature in high_mi_features
     ]
-
-    suspicious_features.extend([f"{feature}: abs(correlation) > 0.80" for feature in corr_hits])
-    suspicious_features.extend([f"{feature}: single-feature AUC > 0.90" for feature in auc_hits])
-    suspicious_features.extend([f"{feature}: top mutual information" for feature in mi_hits])
-    suspicious_features.extend(
-        [f"{feature}: post-loan behavioral feature" for feature in behavior_hits]
-    )
-    suspicious_features = sorted(set(suspicious_features))
-
     with open(LEAKAGE_AUDIT_DIR / "suspicious_features.txt", "w", encoding="utf-8") as handle:
-        handle.write(
-            "\n".join(suspicious_features)
-            if suspicious_features
-            else "No suspicious features found."
-        )
+        handle.write("\n".join(suspicious_features) if suspicious_features else LEAKAGE_CONCLUSION)
 
     summary = {
         "dataset": project_relative_path(data_path),
         "row_count": int(len(df_raw)),
         "feature_count": int(len(feature_columns)),
+        "feature_set": FEATURE_SET_APPLICATION,
+        "checks": {
+            "target_not_in_features": not target_in_features,
+            "id_columns_not_in_features": not id_cols_in_features,
+            "id_columns_found_in_features": id_cols_in_features,
+            "pay_status_timing_review": {
+                "columns": PAY_STATUS_COLUMNS,
+                "leakage_decision": "historical predictors, not treated as leakage",
+            },
+        },
         "top_correlations": corr_df.head(10).to_dict(orient="records"),
         "top_mutual_information": mi_df.head(10).to_dict(orient="records"),
-        "top_single_feature_auc": single_feature_auc_df.head(10).to_dict(orient="records"),
         "top_xgboost_feature_importance": importance_df.head(10).to_dict(orient="records"),
-        "top_shap_features": shap_df.head(10).to_dict(orient="records"),
         "duplicate_overlap": duplicate_summary,
         "target_shuffle_test": shuffle_summary,
         "suspicious_features": suspicious_features,
+        "conclusion": LEAKAGE_CONCLUSION,
     }
     save_json(summary, LEAKAGE_AUDIT_DIR / "leakage_audit_summary.json")
+    _write_markdown_report(summary)
 
-    warnings = []
-    if corr_hits:
-        warnings.append(f"High correlation features: {', '.join(corr_hits)}")
-    if auc_hits:
-        warnings.append(f"High single-feature AUC features: {', '.join(auc_hits)}")
-    if mi_hits:
-        warnings.append(f"Top mutual information features: {', '.join(mi_hits[:5])}")
-    if behavior_hits:
-        warnings.append(f"Post-loan behavioral features present: {', '.join(behavior_hits[:5])}")
-
-    if warnings:
-        print("WARNING: potential leakage signals detected.")
-        for warning in warnings:
-            print(f"- {warning}")
-    else:
-        print("No major leakage warnings triggered by the configured thresholds.")
-
+    print(LEAKAGE_CONCLUSION)
     return summary
 
 

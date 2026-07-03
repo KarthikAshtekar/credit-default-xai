@@ -1,4 +1,4 @@
-"""SHAP explainability utilities for clean application and behavioral models."""
+"""SHAP explainability utilities for the public UCI model."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ import shap
 
 from .data_preprocessing import (
     FEATURE_SET_APPLICATION,
-    FEATURE_SET_BEHAVIORAL,
     FEATURE_SET_FULL_DIAGNOSTIC,
     TARGET_COL,
     get_dataset_split,
@@ -38,8 +37,6 @@ def _transform_X(pipeline, X: pd.DataFrame):
 
 def _model_context(model_path: Path) -> tuple[str, Path]:
     stem = model_path.stem
-    if "behavioral" in stem:
-        return FEATURE_SET_BEHAVIORAL, REPORTS_DIR / "explainability_reports" / "behavioral_model"
     if "full_diagnostic" in stem:
         return (
             FEATURE_SET_FULL_DIAGNOSTIC,
@@ -126,14 +123,11 @@ def generate_shap_artifacts(model_path: Path, sample_size: int = 500) -> dict:
 
 
 def run() -> dict:
-    xgb_path = MODELS_DIR / "xgboost_application.pkl"
-    log_path = MODELS_DIR / "logistic_application.pkl"
-    behavioral_path = MODELS_DIR / "xgboost_behavioral.pkl"
+    xgb_path = MODELS_DIR / "xgboost_public.pkl"
+    log_path = MODELS_DIR / "logistic_public.pkl"
 
     if xgb_path.exists():
         return generate_shap_artifacts(xgb_path)
-    if behavioral_path.exists():
-        return generate_shap_artifacts(behavioral_path)
     if log_path.exists():
         return generate_shap_artifacts(log_path)
 

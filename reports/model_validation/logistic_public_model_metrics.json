@@ -5,15 +5,15 @@
     "application_public excludes the direct protected attribute SEX from active training features while retaining SEX in the audit dataframe for fairness analysis.",
     "PAY_0 to PAY_6 are historical repayment-status variables available before the next-month default target and are not treated as leakage for this modeling question."
   ],
-  "model_name": "xgboost_public",
+  "model_name": "logistic_public",
   "feature_set": "application_public",
   "split_strategy": "random",
   "metrics": {
-    "accuracy": 0.8152282572475842,
-    "precision": 0.6584302325581395,
-    "recall": 0.3413715146948003,
-    "f1": 0.4496277915632754,
-    "roc_auc": 0.7747718507831988
+    "accuracy": 0.740753082305898,
+    "precision": 0.4374658656471873,
+    "recall": 0.6036171816126601,
+    "f1": 0.5072830905636478,
+    "roc_auc": 0.7526831057147118
   },
   "train_rows": 23998,
   "test_rows": 6002,
