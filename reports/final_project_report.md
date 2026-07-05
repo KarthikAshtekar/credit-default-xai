@@ -43,6 +43,36 @@ Saved outputs:
 
 No true temporal validation is reported because the UCI dataset has no application timestamp.
 
+## Recall-Focused Threshold Tuning
+
+Because missed defaults are costly in credit risk, the project includes a validation-only threshold and class-weight tuning workflow. The workflow splits the training fold into inner-train and validation data, selects thresholds on validation data only, and evaluates the chosen policy once on the untouched held-out test split.
+
+| Policy | Threshold | Accuracy | Precision | Recall | F1 | F2 | PR-AUC | Approval-support rate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline XGBoost | 0.50 | 0.8152 | 0.6584 | 0.3414 | 0.4496 | 0.3778 | 0.5415 | 0.8854 |
+| Selected recall policy | 0.25 | 0.7669 | 0.4777 | 0.5810 | 0.5243 | 0.5569 | 0.5415 | 0.7311 |
+
+Selected policy:
+
+- Candidate: `xgboost_public_baseline_threshold_050`
+- Rule: maximize recall subject to validation precision >= `0.50`
+- Fallback used: `False`
+- Test confusion counts: TP `771`, FP `843`, TN `3832`, FN `556`
+- Best separated class-weight candidate: `scale_pos_weight=2.0`
+- SMOTE: skipped because `imbalanced-learn` is not installed
+
+Saved outputs:
+
+- `reports/model_validation/threshold_tuning_report.csv`
+- `reports/model_validation/threshold_selection_summary.csv`
+- `reports/model_validation/selected_recall_policy.json`
+- `reports/model_validation/class_weight_tuning_report.csv`
+- `reports/model_validation/smote_experiment_report.csv`
+- `reports/model_validation/recall_optimized_summary.md`
+- `reports/model_validation/precision_recall_curve_baseline.png`
+- `reports/model_validation/precision_recall_curve_recall_optimized.png`
+- `reports/model_validation/precision_recall_curve_comparison.png`
+
 ## Leakage Audit
 
 Conclusion:

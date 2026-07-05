@@ -62,6 +62,21 @@ def show_warning_if_missing(label: str, path: Path) -> None:
     st.warning(f"{label} is missing: `{path}`")
 
 
+def get_recall_policy_threshold(policy: dict[str, Any] | None) -> float | None:
+    if not policy:
+        return None
+    try:
+        return float(policy["selected_threshold"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def screening_flag_text(probability: float, threshold: float) -> str:
+    if probability >= threshold:
+        return "Manual-review flag"
+    return "No manual-review flag"
+
+
 def option_index(options: list[int], selected: int) -> int:
     try:
         return options.index(selected)
@@ -123,6 +138,12 @@ temporal_path = artifact_paths["temporal"]
 fairness_csv_path = artifact_paths["fairness_csv"]
 fairness_json_path = artifact_paths["fairness_json"]
 mitigation_path = artifact_paths["mitigation"]
+recall_summary_path = artifact_paths["recall_summary"]
+selected_recall_policy_path = artifact_paths["selected_recall_policy"]
+threshold_tuning_path = artifact_paths["threshold_tuning"]
+threshold_selection_path = artifact_paths["threshold_selection"]
+precision_recall_curve_path = artifact_paths["precision_recall_curve"]
+threshold_fairness_comparison_path = artifact_paths["threshold_fairness_comparison"]
 leakage_path = artifact_paths["leakage"]
 counterfactual_path = artifact_paths["counterfactual"]
 shap_summary_path = artifact_paths["shap_summary"]
@@ -173,6 +194,8 @@ with tab_prediction:
     st.subheader("Applicant Risk Prediction")
     model, model_path = ensure_model("XGBoost")
     feature_table = get_feature_table()
+    selected_recall_policy = load_json(selected_recall_policy_path)
+    recall_policy_threshold = get_recall_policy_threshold(selected_recall_policy)
     presets = build_applicant_presets(feature_table)
     selected_preset_name = st.selectbox("Demo Cardholder Preset", options=list(presets))
     selected_preset = presets[selected_preset_name]
@@ -268,10 +291,23 @@ with tab_prediction:
             negative_drivers,
         )
         guidance = generate_counterfactual_guidance(applicant_df, positive_drivers)
+        baseline_screening_flag = probability >= DEFAULT_DECISION_THRESHOLD
+        recall_screening_flag = (
+            probability >= recall_policy_threshold if recall_policy_threshold is not None else None
+        )
 
         st.session_state["current_prediction_result"] = {
             "probability": probability,
             "threshold": DEFAULT_DECISION_THRESHOLD,
+            "baseline_screening_flag": baseline_screening_flag,
+            "recall_policy_threshold": recall_policy_threshold,
+            "recall_screening_flag": recall_screening_flag,
+            "recall_policy_name": (
+                selected_recall_policy.get("selected_candidate") if selected_recall_policy else None
+            ),
+            "recall_policy_rule": (
+                selected_recall_policy.get("selection_rule") if selected_recall_policy else None
+            ),
             "risk_band": band,
             "recommendation": recommendation,
             "applicant_df": applicant_df,
@@ -290,6 +326,28 @@ with tab_prediction:
         metric_a, metric_b = st.columns(2)
         metric_a.metric("Default Probability", f"{prediction_result['probability']:.2%}")
         metric_b.metric("Risk Category", prediction_result["risk_band"])
+        baseline_col, recall_col = st.columns(2)
+        baseline_col.metric(
+            "Baseline 0.50 Screening",
+            screening_flag_text(
+                prediction_result["probability"],
+                DEFAULT_DECISION_THRESHOLD,
+            ),
+        )
+        recall_threshold = prediction_result.get("recall_policy_threshold")
+        if recall_threshold is None:
+            recall_col.info(
+                "Run `python -m src.recall_optimization` to add recall-optimized screening."
+            )
+        else:
+            recall_col.metric(
+                f"Recall Policy {recall_threshold:.2f}",
+                screening_flag_text(prediction_result["probability"], recall_threshold),
+            )
+            st.caption(
+                f"Recall policy: `{prediction_result.get('recall_policy_name')}` selected by "
+                f"`{prediction_result.get('recall_policy_rule')}`."
+            )
         st.warning(f"Decision-support recommendation: **{prediction_result['recommendation']}**")
         st.caption("Decision support only. This is not a regulatory credit scorecard.")
         st.write(prediction_result["explanation"])
@@ -341,6 +399,78 @@ with tab_performance:
         st.subheader("Temporal Validation")
         st.dataframe(temporal_df, width="stretch")
 
+    st.subheader("Threshold and Recall Tradeoff")
+    recall_summary = load_json(recall_summary_path)
+    threshold_tuning_df = load_csv(threshold_tuning_path)
+    threshold_selection_df = load_csv(threshold_selection_path)
+    selected_policy = recall_summary.get("selected_policy", {}) if recall_summary else {}
+
+    if recall_summary is None:
+        show_warning_if_missing("Recall optimization summary", recall_summary_path)
+        st.info("Run `python -m src.recall_optimization` to generate threshold tradeoff reports.")
+    else:
+        selected_metrics = selected_policy.get("test_metrics", {})
+        metric_cols = st.columns(4)
+        metric_cols[0].metric(
+            "Selected Threshold",
+            f"{selected_policy.get('selected_threshold', 0):.2f}",
+        )
+        metric_cols[1].metric("Test Recall", f"{selected_metrics.get('recall', 0):.2%}")
+        metric_cols[2].metric("Test Precision", f"{selected_metrics.get('precision', 0):.2%}")
+        metric_cols[3].metric("Test F2", f"{selected_metrics.get('f2', 0):.4f}")
+
+        comparison_df = pd.DataFrame(recall_summary.get("comparisons", []))
+        if not comparison_df.empty:
+            display_columns = [
+                "candidate_name",
+                "selected_threshold",
+                "test_accuracy",
+                "test_precision",
+                "test_recall",
+                "test_f1",
+                "test_f2",
+                "test_pr_auc",
+                "test_approval_support_rate",
+                "notes",
+            ]
+            st.dataframe(
+                comparison_df[[col for col in display_columns if col in comparison_df.columns]],
+                width="stretch",
+            )
+
+    if threshold_tuning_df is not None and not threshold_tuning_df.empty:
+        selected_candidate = selected_policy.get("candidate_name")
+        candidate_options = threshold_tuning_df["candidate_name"].dropna().unique().tolist()
+        default_index = (
+            candidate_options.index(selected_candidate)
+            if selected_candidate in candidate_options
+            else 0
+        )
+        tradeoff_candidate = st.selectbox(
+            "Threshold Tradeoff Candidate",
+            options=candidate_options,
+            index=default_index,
+        )
+        tradeoff_df = threshold_tuning_df[
+            threshold_tuning_df["candidate_name"] == tradeoff_candidate
+        ].sort_values("threshold")
+        chart_columns = [
+            "precision",
+            "recall",
+            "f2",
+            "approval_support_rate",
+        ]
+        st.line_chart(tradeoff_df.set_index("threshold")[chart_columns])
+    else:
+        show_warning_if_missing("Threshold tuning report", threshold_tuning_path)
+
+    if threshold_selection_df is not None:
+        with st.expander("View threshold-selection rules"):
+            st.dataframe(threshold_selection_df, width="stretch")
+
+    if precision_recall_curve_path.exists():
+        st.image(str(precision_recall_curve_path), caption="Held-out precision-recall comparison")
+
 with tab_explainability:
     st.subheader("SHAP And LIME Explainability")
     if shap_summary_path.exists():
@@ -370,6 +500,7 @@ with tab_fairness:
     fairness_df = load_csv(fairness_csv_path)
     fairness_json = load_json(fairness_json_path)
     mitigation_df = load_csv(mitigation_path)
+    threshold_fairness_df = load_csv(threshold_fairness_comparison_path)
 
     if fairness_json is None:
         show_warning_if_missing("Fairness report", fairness_json_path)
@@ -417,6 +548,15 @@ with tab_fairness:
         st.subheader("Fairness vs Performance Tradeoff")
         st.dataframe(mitigation_df, width="stretch")
 
+    if threshold_fairness_df is None:
+        show_warning_if_missing(
+            "Threshold fairness comparison file",
+            threshold_fairness_comparison_path,
+        )
+    else:
+        st.subheader("Baseline vs Recall-Optimized Threshold Fairness")
+        st.dataframe(threshold_fairness_df, width="stretch")
+
 with tab_counterfactual:
     st.subheader("Counterfactual Guidance")
     prediction_result = st.session_state.get("current_prediction_result")
@@ -454,6 +594,30 @@ with tab_scorecard:
         metric_a.metric("Default Probability", f"{report['probability']:.2%}")
         metric_b.metric("Decision Threshold", f"{report['threshold']:.0%}")
         metric_c.metric("Risk Band", report["risk_band"])
+        recall_threshold = prediction_result.get("recall_policy_threshold")
+        screening_rows = [
+            {
+                "policy": "baseline_threshold_050",
+                "threshold": DEFAULT_DECISION_THRESHOLD,
+                "screening_result": screening_flag_text(
+                    prediction_result["probability"],
+                    DEFAULT_DECISION_THRESHOLD,
+                ),
+            }
+        ]
+        if recall_threshold is not None:
+            screening_rows.append(
+                {
+                    "policy": prediction_result.get("recall_policy_name"),
+                    "threshold": recall_threshold,
+                    "screening_result": screening_flag_text(
+                        prediction_result["probability"],
+                        recall_threshold,
+                    ),
+                }
+            )
+        st.markdown("**Screening policy comparison**")
+        st.table(pd.DataFrame(screening_rows))
         st.write(report["interpretation"])
         st.markdown("**Top SHAP risk-increasing drivers**")
         for driver in prediction_result["positive_drivers"][:3]:

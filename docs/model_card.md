@@ -29,6 +29,17 @@ Final held-out metrics for `xgboost_public`:
 - F1: `0.4496`
 - ROC-AUC: `0.7748`
 
+## Recall-Focused Operating Policy
+
+The saved model remains `xgboost_public.pkl`. For manual-review screening, a separate validation-based threshold policy is available:
+
+- Baseline threshold `0.50`: recall `0.3414`, precision `0.6584`, F2 `0.3778`, PR-AUC `0.5415`
+- Selected recall threshold `0.25`: recall `0.5810`, precision `0.4777`, F2 `0.5569`, PR-AUC `0.5415`
+- Selection rule: maximize validation recall subject to validation precision >= `0.50`
+- Fallback rule: maximize F2 if no threshold satisfies the precision floor
+
+This policy improves default capture for screening while lowering accuracy, precision, and approval-support rate. It is not a lending decision rule by itself.
+
 ## Feature Policy
 
 The final active feature set is `application_public`.
@@ -69,6 +80,7 @@ SHAP, LIME, and counterfactual artifacts are generated for the public UCI XGBoos
 
 ```bash
 python -m src.data_api_loader --source uci --dataset_name default_credit_card
+python -m src.recall_optimization
 python -m src.run_pipeline
 streamlit run dashboard/app.py
 ```

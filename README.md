@@ -87,6 +87,40 @@ reports/model_validation/logistic_public_model_metrics.json
 
 The UCI dataset does not include a true application timestamp. Temporal validation is therefore not invented; the report records that the final metrics use a stratified held-out split.
 
+## Recall-Focused Threshold Tuning
+
+The baseline XGBoost at the default `0.50` threshold has strong overall accuracy but low default-class recall:
+
+| Policy | Threshold | Accuracy | Precision | Recall | F1 | F2 | ROC-AUC | PR-AUC | Approval-support rate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline XGBoost | 0.50 | 0.8152 | 0.6584 | 0.3414 | 0.4496 | 0.3778 | 0.7748 | 0.5415 | 0.8854 |
+| Recall screening policy | 0.25 | 0.7669 | 0.4777 | 0.5810 | 0.5243 | 0.5569 | 0.7748 | 0.5415 | 0.7311 |
+
+The selected recall policy keeps the baseline XGBoost model and lowers the screening threshold to `0.25`. Selection used validation data only, applying Rule A: maximize recall subject to validation precision >= `0.50`; fallback Rule B maximizes F2 if Rule A has no candidate.
+
+Run the recall workflow:
+
+```bash
+python -m src.recall_optimization
+```
+
+Saved outputs:
+
+```text
+reports/model_validation/threshold_tuning_report.csv
+reports/model_validation/threshold_selection_summary.csv
+reports/model_validation/selected_recall_policy.json
+reports/model_validation/class_weight_tuning_report.csv
+reports/model_validation/smote_experiment_report.csv
+reports/model_validation/recall_optimized_summary.md
+reports/model_validation/precision_recall_curve_baseline.png
+reports/model_validation/precision_recall_curve_recall_optimized.png
+reports/model_validation/precision_recall_curve_comparison.png
+reports/fairness_reports/application_model/threshold_fairness_comparison.csv
+```
+
+SMOTE is separated from the selected policy. If `imbalanced-learn` is not installed, the SMOTE experiment is skipped and documented instead of failing the workflow.
+
 ## Leakage Audit
 
 Conclusion:
@@ -191,6 +225,12 @@ Run the full pipeline:
 
 ```bash
 python -m src.run_pipeline
+```
+
+Run recall-focused threshold and class-weight validation:
+
+```bash
+python -m src.recall_optimization
 ```
 
 Optional faster run:

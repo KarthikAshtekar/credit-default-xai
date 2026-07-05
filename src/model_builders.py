@@ -15,7 +15,7 @@ def build_logistic_estimator() -> LogisticRegression:
     )
 
 
-def build_xgboost_estimator() -> XGBClassifier:
+def build_xgboost_estimator(scale_pos_weight: float = 1.0) -> XGBClassifier:
     return XGBClassifier(
         n_estimators=150,
         max_depth=4,
@@ -26,4 +26,5 @@ def build_xgboost_estimator() -> XGBClassifier:
         eval_metric="logloss",
         random_state=42,
         n_jobs=-1,
+        scale_pos_weight=scale_pos_weight,
     )
