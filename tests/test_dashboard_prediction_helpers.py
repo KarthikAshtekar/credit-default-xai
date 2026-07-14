@@ -191,3 +191,13 @@ def test_application_artifact_paths_resolve_to_public_reports() -> None:
         .as_posix()
         .endswith("reports/model_validation/deep_learning_comparison.csv")
     )
+    assert (
+        paths["ml_vs_dl_comparison"]
+        .as_posix()
+        .endswith("reports/model_validation/ml_vs_dl_comparison.csv")
+    )
+    assert (
+        paths["ml_vs_dl_precision_recall_curve"]
+        .as_posix()
+        .endswith("reports/model_validation/ml_vs_dl_precision_recall_curve.png")
+    )

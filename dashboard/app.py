@@ -73,8 +73,8 @@ def get_recall_policy_threshold(policy: dict[str, Any] | None) -> float | None:
 
 def screening_flag_text(probability: float, threshold: float) -> str:
     if probability >= threshold:
-        return "Manual-review flag"
-    return "No manual-review flag"
+        return "Manual review recommended"
+    return "No manual review flag"
 
 
 def option_index(options: list[int], selected: int) -> int:
@@ -115,6 +115,100 @@ def _number_input_grid(
     return values
 
 
+def estimate_maximum_advisable_credit_exposure(
+    model: Any,
+    applicant_inputs: dict[str, Any],
+    feature_table: pd.DataFrame,
+    threshold: float,
+) -> dict[str, Any]:
+    """Estimate a model-supported exposure cap by varying LIMIT_BAL only."""
+
+    current_limit = max(float(applicant_inputs["LIMIT_BAL"]), 0.0)
+    if current_limit <= 0:
+        return {
+            "max_exposure": 0.0,
+            "threshold": threshold,
+            "probability_at_exposure": None,
+            "note": "No positive credit exposure was entered for simulation.",
+        }
+
+    start = min(10000.0, current_limit)
+    if current_limit == start:
+        limits = [current_limit]
+    else:
+        points = min(60, max(2, int(current_limit // 10000) + 1))
+        limits = [start + (current_limit - start) * i / (points - 1) for i in range(points)]
+
+    rows = []
+    for candidate_limit in limits:
+        scenario = dict(applicant_inputs)
+        scenario["LIMIT_BAL"] = float(candidate_limit)
+        scenario_df, _ = build_applicant_model_row(scenario, feature_table)
+        probability = float(model.predict_proba(scenario_df)[:, 1][0])
+        rows.append({"limit": float(candidate_limit), "probability": probability})
+
+    feasible = [row for row in rows if row["probability"] < threshold]
+    if feasible:
+        selected = max(feasible, key=lambda row: row["limit"])
+        return {
+            "max_exposure": selected["limit"],
+            "threshold": threshold,
+            "probability_at_exposure": selected["probability"],
+            "note": (
+                "Largest simulated LIMIT_BAL up to the entered exposure that stayed below "
+                "the active manual-review threshold."
+            ),
+        }
+
+    lowest_risk = min(rows, key=lambda row: row["probability"])
+    return {
+        "max_exposure": 0.0,
+        "threshold": threshold,
+        "probability_at_exposure": lowest_risk["probability"],
+        "note": (
+            "No simulated LIMIT_BAL up to the entered exposure stayed below the active "
+            "manual-review threshold."
+        ),
+    }
+
+
+def simulate_improvement_scenarios(
+    model: Any,
+    applicant_inputs: dict[str, Any],
+    feature_table: pd.DataFrame,
+    current_probability: float,
+) -> pd.DataFrame:
+    scenarios: list[tuple[str, dict[str, Any]]] = []
+
+    timely_repayment = dict(applicant_inputs)
+    for column in PAY_STATUS_COLUMNS:
+        timely_repayment[column] = min(int(timely_repayment[column]), 0)
+    scenarios.append(("Timelier recent repayment", timely_repayment))
+
+    lower_utilization = dict(applicant_inputs)
+    for column in BILL_AMOUNT_COLUMNS:
+        lower_utilization[column] = max(float(lower_utilization[column]) * 0.80, 0.0)
+    scenarios.append(("20% lower bill balances", lower_utilization))
+
+    stronger_payments = dict(applicant_inputs)
+    for column in PAY_AMOUNT_COLUMNS:
+        stronger_payments[column] = max(float(stronger_payments[column]) * 1.20, 0.0)
+    scenarios.append(("20% higher repayment amounts", stronger_payments))
+
+    rows = []
+    for scenario_name, scenario_inputs in scenarios:
+        scenario_df, _ = build_applicant_model_row(scenario_inputs, feature_table)
+        probability = float(model.predict_proba(scenario_df)[:, 1][0])
+        rows.append(
+            {
+                "scenario": scenario_name,
+                "default_probability": probability,
+                "change_vs_current": probability - current_probability,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 st.set_page_config(
     page_title="Public Credit-Card Default Risk Model",
     page_icon="CC",
@@ -124,6 +218,10 @@ st.set_page_config(
 st.title("Explainable and Fair Credit-Card Default Risk Prediction")
 st.caption(
     "Primary dataset: public UCI Taiwan credit-card default data. Target: next-month default."
+)
+st.caption(
+    "This tool provides model-based decision support for educational/portfolio purposes. "
+    "It does not guarantee loan approval, rejection, or regulatory compliance."
 )
 
 selected_dataset_source = st.sidebar.selectbox("Dataset Source", DATASET_SOURCE_OPTIONS)
@@ -151,34 +249,15 @@ shap_local_path = artifact_paths["shap_local"]
 lime_local_path = artifact_paths["lime_local"]
 deep_learning_metrics_path = artifact_paths["deep_learning_metrics"]
 deep_learning_comparison_path = artifact_paths["deep_learning_comparison"]
+ml_vs_dl_curve_path = artifact_paths["ml_vs_dl_precision_recall_curve"]
 deep_learning_policy_path = artifact_paths["deep_learning_policy"]
 deep_learning_fairness_path = artifact_paths["deep_learning_fairness"]
 
-(
-    tab_overview,
-    tab_prediction,
-    tab_performance,
-    tab_explainability,
-    tab_fairness,
-    tab_counterfactual,
-    tab_scorecard,
-    tab_leakage,
-    tab_governance,
-) = st.tabs(
-    [
-        "Project Overview",
-        "Applicant Risk Prediction",
-        "Model Performance",
-        "Explainability",
-        "Fairness Analysis",
-        "Counterfactual Guidance",
-        "Applicant Risk Scorecard Report",
-        "Leakage Audit",
-        "Model Governance",
-    ]
+tab_applicant, tab_guidance, tab_governance = st.tabs(
+    ["Applicant Report", "Improvement Guidance", "Model Governance"]
 )
 
-with tab_overview:
+with tab_governance:
     st.subheader("Project Framing")
     st.write(
         "This project models next-month credit-card default using the public UCI Default of "
@@ -196,7 +275,7 @@ with tab_overview:
         "next-month default; they are not treated as leakage for this modeling question."
     )
 
-with tab_prediction:
+with tab_applicant:
     st.subheader("Applicant Risk Prediction")
     model, model_path = ensure_model("XGBoost")
     feature_table = get_feature_table()
@@ -301,6 +380,19 @@ with tab_prediction:
         recall_screening_flag = (
             probability >= recall_policy_threshold if recall_policy_threshold is not None else None
         )
+        active_review_threshold = recall_policy_threshold or DEFAULT_DECISION_THRESHOLD
+        exposure_estimate = estimate_maximum_advisable_credit_exposure(
+            model,
+            applicant_inputs,
+            feature_table,
+            active_review_threshold,
+        )
+        improvement_scenarios = simulate_improvement_scenarios(
+            model,
+            applicant_inputs,
+            feature_table,
+            probability,
+        )
 
         st.session_state["current_prediction_result"] = {
             "probability": probability,
@@ -323,6 +415,9 @@ with tab_prediction:
             "plot_df": plot_df,
             "explanation": explanation,
             "guidance": guidance,
+            "exposure_estimate": exposure_estimate,
+            "improvement_scenarios": improvement_scenarios,
+            "applicant_inputs": applicant_inputs,
             "shap_warning": shap_warning,
             "model_path": str(model_path),
         }
@@ -358,6 +453,21 @@ with tab_prediction:
         st.caption("Decision support only. This is not a regulatory credit scorecard.")
         st.write(prediction_result["explanation"])
 
+        exposure_estimate = prediction_result.get("exposure_estimate", {})
+        exposure_cols = st.columns(2)
+        exposure_cols[0].metric(
+            "Maximum Advisable Credit Exposure",
+            f"{float(exposure_estimate.get('max_exposure', 0.0)):,.0f}",
+        )
+        probability_at_exposure = exposure_estimate.get("probability_at_exposure")
+        exposure_cols[1].metric(
+            "Risk At Simulated Exposure",
+            "Not available"
+            if probability_at_exposure is None
+            else f"{float(probability_at_exposure):.2%}",
+        )
+        st.caption(exposure_estimate.get("note", "Exposure simulation unavailable."))
+
         if prediction_result["shap_warning"]:
             st.warning(prediction_result["shap_warning"])
 
@@ -387,7 +497,7 @@ with tab_prediction:
         f"{', '.join(EXCLUDED_USER_INPUT_FIELDS[:5])}."
     )
 
-with tab_performance:
+with tab_governance:
     st.subheader("Held-Out Model Performance")
     performance_df = load_csv(performance_path)
     if performance_df is None:
@@ -477,7 +587,7 @@ with tab_performance:
     if precision_recall_curve_path.exists():
         st.image(str(precision_recall_curve_path), caption="Held-out precision-recall comparison")
 
-with tab_explainability:
+with tab_governance:
     st.subheader("SHAP And LIME Explainability")
     if shap_summary_path.exists():
         st.image(str(shap_summary_path), caption="Global SHAP summary for the UCI XGBoost model")
@@ -501,7 +611,7 @@ with tab_explainability:
         "credit limit, bill-to-limit utilization, and repayment amount patterns."
     )
 
-with tab_fairness:
+with tab_governance:
     st.subheader("Fairness Analysis")
     fairness_df = load_csv(fairness_csv_path)
     fairness_json = load_json(fairness_json_path)
@@ -563,13 +673,24 @@ with tab_fairness:
         st.subheader("Baseline vs Recall-Optimized Threshold Fairness")
         st.dataframe(threshold_fairness_df, width="stretch")
 
-with tab_counterfactual:
+with tab_guidance:
     st.subheader("Counterfactual Guidance")
     prediction_result = st.session_state.get("current_prediction_result")
     if prediction_result:
         st.write("Current applicant guidance based on live local SHAP drivers:")
         for item in prediction_result["guidance"]:
             st.write(f"- {item}")
+        improvement_scenarios = prediction_result.get("improvement_scenarios")
+        if isinstance(improvement_scenarios, pd.DataFrame) and not improvement_scenarios.empty:
+            st.markdown("**Improvement scenario simulation**")
+            scenario_display = improvement_scenarios.copy()
+            scenario_display["default_probability"] = scenario_display["default_probability"].map(
+                lambda value: f"{value:.2%}"
+            )
+            scenario_display["change_vs_current"] = scenario_display["change_vs_current"].map(
+                lambda value: f"{value:+.2%}"
+            )
+            st.dataframe(scenario_display, width="stretch")
         st.caption("These are decision-support suggestions only and do not promise approval.")
     else:
         counterfactual_payload = load_json(counterfactual_path)
@@ -582,11 +703,11 @@ with tab_counterfactual:
             else:
                 st.dataframe(changes.astype(str), width="stretch")
 
-with tab_scorecard:
+with tab_applicant:
     st.subheader("Applicant Risk Scorecard Report")
     prediction_result = st.session_state.get("current_prediction_result")
     if not prediction_result:
-        st.info("Run a prediction from the Applicant Risk Prediction tab to generate a report.")
+        st.info("Run a prediction above to generate a report.")
     else:
         report = build_applicant_risk_report(
             probability=prediction_result["probability"],
@@ -594,6 +715,7 @@ with tab_scorecard:
             negative_drivers=prediction_result["negative_drivers"],
             guidance=prediction_result["guidance"],
             threshold=prediction_result.get("threshold", DEFAULT_DECISION_THRESHOLD),
+            exposure_estimate=prediction_result.get("exposure_estimate"),
             shap_warning=prediction_result.get("shap_warning"),
         )
         metric_a, metric_b, metric_c = st.columns(3)
@@ -644,7 +766,7 @@ with tab_scorecard:
             mime="text/markdown",
         )
 
-with tab_leakage:
+with tab_governance:
     st.subheader("Leakage Audit")
     leakage_summary = load_json(leakage_path)
     if leakage_summary is None:
@@ -693,6 +815,11 @@ with tab_governance:
     if dnn_comparison is not None:
         st.markdown("**ML vs DL held-out comparison**")
         st.dataframe(dnn_comparison, width="stretch")
+    if ml_vs_dl_curve_path.exists():
+        st.image(
+            str(ml_vs_dl_curve_path),
+            caption="Logistic Regression vs XGBoost vs DNN precision-recall curve",
+        )
     if dnn_fairness is not None:
         with st.expander("DNN fairness diagnostics"):
             st.dataframe(dnn_fairness, width="stretch")

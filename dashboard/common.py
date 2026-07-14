@@ -97,6 +97,10 @@ def get_application_artifact_paths() -> dict[str, Path]:
         "deep_learning_comparison": REPORTS_DIR
         / "model_validation"
         / "deep_learning_comparison.csv",
+        "ml_vs_dl_comparison": REPORTS_DIR / "model_validation" / "ml_vs_dl_comparison.csv",
+        "ml_vs_dl_precision_recall_curve": REPORTS_DIR
+        / "model_validation"
+        / "ml_vs_dl_precision_recall_curve.png",
         "deep_learning_policy": REPORTS_DIR
         / "model_validation"
         / "deep_learning_selected_policy.json",

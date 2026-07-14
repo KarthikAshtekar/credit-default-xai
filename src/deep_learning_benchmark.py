@@ -171,6 +171,46 @@ def _probability_metrics(y_true: pd.Series, probabilities: np.ndarray) -> dict[s
     }
 
 
+def _prediction_frame(
+    y_true: pd.Series,
+    probabilities: np.ndarray,
+    model_name: str,
+) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "y_true": np.asarray(y_true).astype(int),
+            "y_proba": np.asarray(probabilities, dtype=float),
+            "model_name": model_name,
+            "split": "test",
+        }
+    )
+
+
+def _write_test_predictions(
+    y_true: pd.Series,
+    probabilities: np.ndarray,
+    model_name: str,
+    path: Path,
+) -> None:
+    _prediction_frame(y_true, probabilities, model_name).to_csv(path, index=False)
+
+
+def _prediction_metrics_row(model_name: str, path: Path) -> dict[str, Any] | None:
+    if not path.exists():
+        return None
+    frame = pd.read_csv(path)
+    required = {"y_true", "y_proba", "model_name", "split"}
+    if not required.issubset(frame.columns):
+        return None
+    y_true = frame["y_true"].astype(int)
+    y_proba = frame["y_proba"].astype(float).to_numpy()
+    return {
+        "model_name": model_name,
+        **threshold_metrics(y_true, y_proba, 0.50),
+        **_probability_metrics(y_true, y_proba),
+    }
+
+
 def _fit_model(
     tf: Any,
     X_train: np.ndarray,
@@ -242,36 +282,65 @@ def _precision_recall_plot(
     figure.savefig(dnn_path, dpi=160, bbox_inches="tight")
     plt.close(figure)
 
-    xgb_probability_path = MODEL_VALIDATION_DIR / "xgboost_public_test_probabilities.csv"
-    note = "XGBoost saved probabilities were unavailable; the ML-vs-DL curve contains DNN only."
+    curve_specs = [
+        ("Logistic Regression", MODEL_VALIDATION_DIR / "logistic_test_predictions.csv"),
+        ("XGBoost", MODEL_VALIDATION_DIR / "xgboost_test_predictions.csv"),
+        ("DNN baseline", MODEL_VALIDATION_DIR / "dnn_test_predictions.csv"),
+    ]
+    included: list[str] = []
+    skipped: list[str] = []
+    y_test_array = np.asarray(y_test).astype(int)
+
     figure, axis = plt.subplots(figsize=(7, 5))
-    axis.plot(recall, precision, label=f"DNN (AP={dnn_ap:.4f})")
-    if xgb_probability_path.exists():
-        frame = pd.read_csv(xgb_probability_path)
-        if {"y_true", "probability"}.issubset(frame.columns) and len(frame) == len(y_test):
-            xgb_precision, xgb_recall, _ = precision_recall_curve(
-                frame["y_true"], frame["probability"]
-            )
-            xgb_ap = average_precision_score(frame["y_true"], frame["probability"])
-            axis.plot(xgb_recall, xgb_precision, label=f"XGBoost (AP={xgb_ap:.4f})")
-            note = "DNN and XGBoost curves use saved probabilities on the common test split."
+    for label, path in curve_specs:
+        if not path.exists():
+            skipped.append(f"{label} missing `{path.name}`")
+            continue
+        frame = pd.read_csv(path)
+        if not {"y_true", "y_proba"}.issubset(frame.columns):
+            skipped.append(f"{label} has an invalid prediction schema")
+            continue
+        y_true = frame["y_true"].astype(int).to_numpy()
+        if len(y_true) != len(y_test_array) or not np.array_equal(y_true, y_test_array):
+            skipped.append(f"{label} prediction rows do not match the common test split")
+            continue
+        y_proba = frame["y_proba"].astype(float).to_numpy()
+        model_precision, model_recall, _ = precision_recall_curve(y_true, y_proba)
+        model_ap = average_precision_score(y_true, y_proba)
+        axis.plot(model_recall, model_precision, label=f"{label} (AP={model_ap:.4f})")
+        included.append(label)
     axis.set(xlabel="Recall", ylabel="Precision", title="ML vs DL precision-recall curve")
     axis.legend()
     figure.tight_layout()
     figure.savefig(comparison_path, dpi=160, bbox_inches="tight")
     plt.close(figure)
+    note = "ML-vs-DL precision-recall curve includes: " + ", ".join(included) + "."
+    if skipped:
+        note += " Skipped curves: " + "; ".join(skipped) + "."
     return note
 
 
 def _load_existing_comparison_rows() -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    prediction_paths = {
+        "logistic_public": MODEL_VALIDATION_DIR / "logistic_test_predictions.csv",
+        "xgboost_public": MODEL_VALIDATION_DIR / "xgboost_test_predictions.csv",
+    }
+    for model_name, path in prediction_paths.items():
+        row = _prediction_metrics_row(model_name, path)
+        if row is not None:
+            rows.append(row)
+    covered_models = {row["model_name"] for row in rows}
+
     model_path = MODEL_VALIDATION_DIR / "public_credit_model_comparison.csv"
     if model_path.exists():
         existing = pd.read_csv(model_path)
         for _, row in existing.iterrows():
+            if row.get("model_name") in covered_models:
+                continue
             metrics = row.to_dict()
             metrics["threshold"] = 0.50
-            metrics["pr_auc"] = None
+            metrics.setdefault("pr_auc", None)
             rows.append(metrics)
     recall_path = MODEL_VALIDATION_DIR / "recall_optimized_summary.json"
     if recall_path.exists():
@@ -587,13 +656,19 @@ def run(config: BenchmarkConfig | None = None) -> dict[str, Any]:
     tuning.to_csv(MODEL_VALIDATION_DIR / "deep_learning_threshold_tuning.csv", index=False)
     save_json(policy, MODEL_VALIDATION_DIR / "deep_learning_selected_policy.json")
     _write_selection_report(policy)
+    _write_test_predictions(
+        splits.y_test,
+        experiments["dnn_baseline"]["test_proba"],
+        "dnn_baseline",
+        MODEL_VALIDATION_DIR / "dnn_test_predictions.csv",
+    )
     _training_curve(
         histories[source_experiment],
         MODEL_VALIDATION_DIR / "deep_learning_training_curve.png",
     )
     curve_note = _precision_recall_plot(
         splits.y_test,
-        selected_test_proba,
+        experiments["dnn_baseline"]["test_proba"],
         MODEL_VALIDATION_DIR / "deep_learning_precision_recall_curve.png",
         MODEL_VALIDATION_DIR / "ml_vs_dl_precision_recall_curve.png",
     )
@@ -617,6 +692,7 @@ def run(config: BenchmarkConfig | None = None) -> dict[str, Any]:
     ]
     comparison = comparison[[col for col in preferred_columns if col in comparison.columns]]
     comparison.to_csv(MODEL_VALIDATION_DIR / "deep_learning_comparison.csv", index=False)
+    comparison.to_csv(MODEL_VALIDATION_DIR / "ml_vs_dl_comparison.csv", index=False)
     _write_comparison_report(comparison, curve_note)
 
     sensitive_test = raw.loc[splits.test_indices, "SEX"]

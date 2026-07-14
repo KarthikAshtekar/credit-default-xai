@@ -71,6 +71,21 @@ def test_selected_policy_json_schema() -> None:
     assert payload["evaluation_split"] == "untouched_test"
 
 
+def test_prediction_export_schema(tmp_path) -> None:
+    out_path = tmp_path / "dnn_test_predictions.csv"
+    dnn._write_test_predictions(
+        pd.Series([0, 1]),
+        np.array([0.2, 0.8]),
+        "dnn_baseline",
+        out_path,
+    )
+
+    frame = pd.read_csv(out_path)
+    assert frame.columns.tolist() == ["y_true", "y_proba", "model_name", "split"]
+    assert frame["model_name"].unique().tolist() == ["dnn_baseline"]
+    assert frame["split"].unique().tolist() == ["test"]
+
+
 def test_fairness_function_compatibility() -> None:
     frame = dnn._fairness_rows(
         pd.Series([0, 0, 1, 1]),

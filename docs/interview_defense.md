@@ -1,57 +1,61 @@
 # Interview Defense
 
-## 30-Second Pitch
+## 1. Why this dataset?
 
-This project builds an explainable and fair credit-card default risk workflow using the public UCI Taiwan credit-card default dataset. It trains a logistic benchmark and an XGBoost model, audits leakage, generates SHAP/LIME/counterfactual artifacts, evaluates group fairness on `SEX`, and presents the results in a Streamlit dashboard.
+I used the public UCI Taiwan credit-card default dataset because it is reproducible, widely known, and contains borrower profile, repayment history, bill amounts, payment amounts, credit exposure, and a clear next-month default target. It avoids dependence on a private local file and makes the project easier for reviewers to rerun.
 
-## Technical Walkthrough
+## 2. Why XGBoost?
 
-The primary dataset is UCI Default of Credit Card Clients, fetched through `ucimlrepo` with dataset ID `350`. The adapter normalizes the target to `Default_Flag`, where `1` means next-month default, and creates utilization and repayment features such as `AvgBillToLimitRatio`, `AvgPaymentToBillRatio`, `RecentPaymentDelay`, `MaxPaymentDelay`, and `NumDelayedMonths`.
+XGBoost is strong on structured tabular data, handles nonlinear interactions well, and works cleanly with SHAP explanations. For this dataset, it outperformed the DNN benchmark on ROC-AUC, PR-AUC, and recall-policy performance, so it remains the final model.
 
-The final feature set is `application_public`. It excludes `SEX` from active training while retaining it for fairness auditing. `AGE`, `MARRIAGE`, and `EDUCATION` are included as profile variables with the policy documented.
+## 3. Why not accuracy only?
 
-The final XGBoost model achieved `0.7748` ROC-AUC on a held-out stratified split. Logistic regression remains the benchmark at `0.7527` ROC-AUC.
+Accuracy hides minority-class performance. In credit default prediction, missing actual defaulters is costly, so I evaluated recall, precision, F1, F2, ROC-AUC, PR-AUC, confusion counts, and approval-support tradeoffs.
 
-## Recall Optimization Defense
+## 4. Why recall optimization?
 
-The baseline XGBoost achieved ROC-AUC 0.7748 and accuracy 0.8152, but default-class recall at the 0.50 threshold was 0.3414. Since missed defaults are costly in credit risk, I added validation-based threshold tuning, F2-score, class-weight tuning, PR-AUC, and SMOTE experiments. The selected recall policy improves default capture while explicitly reporting the tradeoff in precision, approval-support rate, and fairness metrics.
+The baseline XGBoost had good accuracy but low default-class recall at the default `0.50` threshold. Recall optimization makes the model more useful for screening by capturing more actual defaults, while explicitly reporting the cost in precision and manual-review volume.
 
-For the selected policy, the model remains XGBoost but the screening threshold moves from `0.50` to `0.25`. Held-out recall increases from `0.3414` to `0.5810`, while precision moves from `0.6584` to `0.4777` and approval-support rate moves from `0.8854` to `0.7311`. The threshold was selected on validation data only and then evaluated once on the untouched test split.
+## 5. Why threshold 0.25?
 
-## Deep Learning Benchmark Defense
+The `0.25` threshold was selected on validation data, not test data. The rule was to maximize validation recall subject to validation precision >= `0.50`. After selection, the policy was evaluated once on the held-out test set.
 
-The DNN was added as a controlled benchmark, not a forced replacement. I wanted to test whether a more flexible neural network improves default-risk ranking or recall enough to justify additional complexity. Since credit data is structured tabular data, XGBoost remains the primary benchmark unless the DNN clearly improves business-relevant metrics such as PR-AUC, recall at acceptable precision, and fairness.
+## 6. Why add Deep Learning?
 
-The baseline DNN produced ROC-AUC `0.7657` and PR-AUC `0.5212`, below XGBoost at `0.7748` and `0.5415`. Validation-only threshold tuning selected `0.30`; on the untouched test set it achieved recall `0.5350` and precision `0.5149`. The class-weighted DNN increased threshold-0.50 recall to `0.6021` but reduced precision to `0.4429`. These results make the DNN a useful learning and governance comparison, while XGBoost remains the evidence-based final model.
+The DNN was added as a controlled benchmark, not a forced replacement. Since credit data is structured tabular data, I expected XGBoost to be strong. The DNN tested whether additional model complexity improves recall, PR-AUC, or ranking quality enough to justify added opacity.
 
-## Leakage Defense
+## 7. Why did the DNN not become final?
 
-The audit checks target exclusion, ID exclusion, duplicate selected-row overlap, source-index overlap, target shuffle, mutual information, and feature timing. The result is:
+The DNN did not materially outperform XGBoost. XGBoost had better ROC-AUC (`0.7748` vs `0.7657`), better PR-AUC (`0.5415` vs `0.5212`), and better recall-policy performance (`0.5810` recall vs `0.5350`). Because the DNN added complexity without better business performance, XGBoost remains final.
 
-> No detected target leakage or train/test overlap in the public UCI pipeline based on implemented checks.
+## 8. How did you avoid leakage?
 
-`PAY_0` to `PAY_6` are historical repayment-status variables before the next-month default target. They are strong predictors, but they are not treated as post-outcome leakage for this prediction question.
+I excluded the target and ID-style fields from features, kept `SEX` out of active model training, used train/test split controls, checked source-index overlap, checked duplicate selected rows, reviewed mutual information, and ran a target-shuffle sanity test. The result was no detected leakage based on implemented checks.
 
-## Explainability
+## 9. How did you use SHAP and LIME?
 
-SHAP provides global and local model drivers. LIME provides an additional local explanation. Counterfactual guidance is framed around reducing repayment delays, lowering bill-to-limit utilization, increasing repayment relative to bill amount, and maintaining timely recent repayment.
+SHAP is used for global and local XGBoost explanations, showing which features move risk up or down. LIME provides a second local explanation view. In the dashboard, local SHAP drivers are converted into plain-English risk reasons and improvement guidance.
 
-## Fairness
+## 10. What fairness metrics did you use?
 
-Fairness is evaluated on favorable outcomes, defined as predicted non-default / low-risk approval decisions. The primary protected attribute is `SEX`. Metrics include demographic parity difference, equal opportunity difference, equalized odds difference, and disparate impact ratio.
+I used demographic parity difference, equal opportunity difference, equalized odds difference, and disparate impact ratio on `SEX`. The favorable outcome is predicted non-default / lower-risk manual-review support. These are diagnostic metrics, not proof of legal compliance.
 
-The threshold comparison is also audited. At the baseline `0.50` threshold, demographic parity difference is `0.0220` and disparate impact ratio is `0.9754`. At the recall policy threshold `0.25`, demographic parity difference is `0.0691` and disparate impact ratio is `0.9089`, so the recall improvement is reported with a fairness tradeoff instead of claimed as a free improvement.
+## 11. Why does threshold affect fairness?
 
-## Limitations
+Changing the threshold changes who receives a favorable predicted outcome. A lower threshold catches more likely defaults, but it can also shift false positives differently across groups. That is why the project reports threshold-performance and threshold-fairness tradeoffs together.
 
-- The dataset has no true application timestamp, so temporal validation is not fabricated.
-- The model is not a calibrated regulatory scorecard.
-- Fairness metrics are observational and group-level.
-- No causal fairness, reject inference, production monitoring, adverse-action compliance, or deployment controls are implemented.
+## 12. What does the dashboard do?
 
-## Future Work
+The dashboard lets a user enter applicant details, generate an XGBoost-based default probability, view a risk band, see whether manual review is recommended, estimate model-supported advisable credit exposure, inspect risk drivers, simulate improvement scenarios, download an applicant report, and review governance artifacts.
 
-- Add South German Credit, Bondora, and Home Credit as future-scope datasets.
-- Add probability calibration and threshold governance.
-- Build a scorecard track with WOE/IV/binning/PDO/base odds.
-- Add intersectional fairness where sample sizes are adequate.
+## 13. Is this production-ready?
+
+No. It is an educational and portfolio workflow. It lacks production monitoring, calibration governance, adverse-action compliance, reject inference, live data validation, access controls, and formal model risk management.
+
+## 14. How is the report generated: model-based or rule-based?
+
+The default probability is model-based. Risk bands and manual-review flags are threshold-based. Maximum advisable credit exposure is estimated through scenario simulation. Shortcomings and recommendations are generated using SHAP/rule-based mappings, making the report reproducible rather than black-box text generation.
+
+## 15. What would you improve next?
+
+I would add probability calibration, threshold governance, a scorecard track with WOE/IV/binning/PDO/base odds, intersectional fairness diagnostics where sample sizes support them, drift monitoring, and validation on additional public credit datasets.
