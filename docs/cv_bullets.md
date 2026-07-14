@@ -1,26 +1,23 @@
 # CV Bullets
 
-## Resume Bullets
+## Version A - 2 Bullets, Concise
 
-- Built an explainable and fair credit-card default risk workflow on the public UCI Taiwan dataset, training logistic regression and XGBoost models with leakage-audited held-out validation.
-- Refactored the project from a private local dataset dependency to a reproducible `ucimlrepo` UCI pipeline with target normalization, feature engineering, fairness audit retention, and dashboard migration.
-- Engineered utilization and repayment-history features including bill-to-limit ratios, repayment-to-bill ratios, recent delay, maximum delay, delayed-month count, average bill amount, and payment-to-limit ratio.
-- Generated SHAP, LIME, counterfactual, fairness, mitigation, leakage audit, and Streamlit dashboard artifacts for the public UCI XGBoost model.
-- Documented protected-attribute policy by excluding `SEX` from active final training features while retaining it for fairness analysis.
+- Built public-data credit default risk workflow using UCI Taiwan data, XGBoost, recall-threshold tuning, SHAP/LIME, fairness diagnostics, and Streamlit reporting.
+- Added a TensorFlow/Keras DNN benchmark and showed XGBoost remained the stronger final model on ROC-AUC, PR-AUC, and recall-policy performance.
 
-## 3-Pointer CV Version
+## Version B - 3 Bullets, Balanced
 
-- Built a responsible AI credit-card default workflow using the public UCI Taiwan dataset and reproducible `ucimlrepo` loading.
-- Trained logistic and XGBoost models, with final XGBoost held-out ROC-AUC of `0.7748` and a leakage audit showing no detected target leakage or train/test overlap.
-- Delivered SHAP, LIME, counterfactual guidance, fairness metrics on `SEX`, mitigation tradeoff reports, and a UCI-compatible Streamlit dashboard.
+- Developed an explainable credit-card default workflow on the public UCI Taiwan dataset with reproducible `ucimlrepo` loading, feature engineering, logistic regression, and XGBoost.
+- Improved manual-review screening by tuning the XGBoost threshold from `0.50` to `0.25`, increasing held-out default recall from `0.3414` to `0.5810` while reporting precision and fairness tradeoffs.
+- Delivered SHAP/LIME explanations, leakage checks, fairness audit on `SEX`, DNN benchmark comparison, and a Streamlit dashboard for applicant-level decision support.
 
-## 4-Pointer CV Version
+## Version C - 4 Bullets, Detailed
 
-- Migrated the credit-default project to the public UCI Taiwan credit-card default dataset as the primary dataset.
-- Implemented UCI schema normalization, `Default_Flag` target standardization, utilization/payment feature engineering, and protected-attribute audit handling.
-- Trained logistic regression and XGBoost models with held-out metrics, leakage audit, fairness diagnostics, and mitigation experiments.
-- Built a Streamlit dashboard for UCI-style applicant risk prediction, local SHAP explanations, counterfactual guidance, scorecard-style reporting, and audit review.
+- Migrated the credit default project to the public UCI Taiwan credit-card default dataset with target normalization, UCI feature engineering, and reproducible pipeline execution.
+- Trained logistic regression and XGBoost models, selecting XGBoost as the final model with held-out ROC-AUC `0.7748` and PR-AUC `0.5415`.
+- Implemented validation-only recall optimization, improving default-class recall from `0.3414` to `0.5810` for manual-review screening while documenting precision, F2, approval-support, and fairness tradeoffs.
+- Added SHAP/LIME explanations, counterfactual guidance, leakage audit, fairness diagnostics on `SEX`, TensorFlow/Keras DNN benchmark, and a Streamlit decision-support dashboard.
 
-## LinkedIn / GitHub Description
+## Short Project Description
 
-Explainable and fair credit-card default risk prediction using the public UCI Taiwan dataset. The project includes UCI data loading, feature engineering, logistic and XGBoost modeling, leakage audit, SHAP/LIME/counterfactual explanations, fairness metrics, mitigation tradeoffs, and a Streamlit dashboard. It is framed as an academic responsible AI workflow, not production lending software.
+Explainable and fair credit-card default risk prediction using the public UCI Taiwan dataset, XGBoost, recall-focused threshold tuning, SHAP/LIME, fairness diagnostics, DNN benchmarking, and a Streamlit dashboard. Framed as a responsible AI portfolio workflow, not production lending software.

@@ -12,6 +12,7 @@ import seaborn as sns
 from sklearn.base import clone
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
     confusion_matrix,
     f1_score,
     precision_score,
@@ -55,6 +56,7 @@ def evaluate_classification(y_true, y_pred, y_proba) -> Dict[str, float]:
         "recall": float(recall_score(y_true, y_pred, zero_division=0)),
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),
         "roc_auc": float(roc_auc_score(y_true, y_proba)),
+        "pr_auc": float(average_precision_score(y_true, y_proba)),
     }
 
 
@@ -135,6 +137,14 @@ def run_model_experiment(
         "test_indices": split.test_indices.tolist(),
         "model_path": project_relative_path(model_output_path),
         "pipeline": pipeline,
+        "test_predictions": pd.DataFrame(
+            {
+                "y_true": split.y_test.astype(int).to_numpy(),
+                "y_proba": y_proba,
+                "model_name": model_name,
+                "split": "test",
+            }
+        ),
     }
 
 
@@ -143,6 +153,7 @@ def _serializable_result(result: Dict[str, Any]) -> Dict[str, Any]:
     payload.pop("pipeline", None)
     payload.pop("train_indices", None)
     payload.pop("test_indices", None)
+    payload.pop("test_predictions", None)
     return payload
 
 
@@ -210,6 +221,18 @@ def _write_model_json(path: Path, result: Dict[str, Any], notes: list[str]) -> N
         },
         path,
     )
+
+
+def _write_test_prediction_exports(results: list[Dict[str, Any]], out_dir: Path) -> None:
+    filename_by_model = {
+        "logistic_public": "logistic_test_predictions.csv",
+        "xgboost_public": "xgboost_test_predictions.csv",
+    }
+    for result in results:
+        filename = filename_by_model.get(result["model_name"])
+        if not filename:
+            continue
+        result["test_predictions"].to_csv(out_dir / filename, index=False)
 
 
 def write_temporal_validation_note() -> pd.DataFrame:
@@ -293,6 +316,7 @@ def run() -> pd.DataFrame:
     standard_df.to_csv(model_validation_dir / "public_credit_model_comparison.csv", index=False)
     standard_df.to_csv(model_validation_dir / "clean_feature_model_comparison.csv", index=False)
     save_json(metrics_map, model_validation_dir / "clean_feature_model_comparison.json")
+    _write_test_prediction_exports(standard_results, model_validation_dir)
 
     result_by_name = {result["model_name"]: result for result in standard_results}
     _write_model_json(

@@ -181,3 +181,23 @@ def test_application_artifact_paths_resolve_to_public_reports() -> None:
             "reports/explainability_reports/application_model/xgboost_public_shap_summary.png"
         )
     )
+    assert (
+        paths["deep_learning_metrics"]
+        .as_posix()
+        .endswith("reports/model_validation/deep_learning_metrics.json")
+    )
+    assert (
+        paths["deep_learning_comparison"]
+        .as_posix()
+        .endswith("reports/model_validation/deep_learning_comparison.csv")
+    )
+    assert (
+        paths["ml_vs_dl_comparison"]
+        .as_posix()
+        .endswith("reports/model_validation/ml_vs_dl_comparison.csv")
+    )
+    assert (
+        paths["ml_vs_dl_precision_recall_curve"]
+        .as_posix()
+        .endswith("reports/model_validation/ml_vs_dl_precision_recall_curve.png")
+    )

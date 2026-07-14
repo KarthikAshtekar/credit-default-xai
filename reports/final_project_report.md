@@ -1,114 +1,160 @@
 # Final Project Report
 
-## Current Primary Dataset
+## 1. Executive Summary
+
+This project builds a responsible AI workflow for credit-card default risk prediction using the public UCI Taiwan credit-card default dataset. The final primary model is XGBoost, supported by recall-focused threshold tuning, SHAP/LIME explanations, fairness diagnostics, leakage checks, a DNN benchmark, and a Streamlit decision-support dashboard.
+
+Final conclusion: XGBoost remains the primary model. The DNN is retained as a benchmark showing that additional complexity did not materially improve the business objective.
+
+## 2. Business Problem
+
+Credit-risk teams need to identify cardholders with elevated default risk while keeping the workflow explainable enough for manual review. Accuracy alone is not sufficient because the default class is the business-critical class. The project therefore emphasizes recall, PR-AUC, threshold tradeoffs, explainability, and diagnostic fairness metrics.
+
+## 3. Dataset
 
 - Dataset: UCI Default of Credit Card Clients / Taiwan credit-card default
 - UCI ID: `350`
-- Loading method: `ucimlrepo`
+- Loader: `ucimlrepo`
 - Rows: `30,000`
 - Target: `Default_Flag`
 - Target meaning: `1` means next-month default / bad outcome
 
-The current project no longer uses a local private dataset as the final-result source.
+The dataset has no true application timestamp, so final metrics use a stratified held-out split. Temporal validation is not fabricated.
 
-## Feature Policy
+## 4. Preprocessing and Feature Engineering
 
-Final active training feature set: `application_public`.
+The final active feature set is `application_public`. It includes UCI fields available before the next-month default target and engineered ratios based on historical bill, payment, limit, and repayment-status behavior.
 
-`SEX` is excluded from active final training features and retained for fairness auditing. `AGE`, `MARRIAGE`, and `EDUCATION` are included as profile variables and treated as audit-sensitive. Repayment-status fields `PAY_0` to `PAY_6` are historical predictors before the next-month target.
+Feature policy:
 
-## Dataset Coverage
+- `SEX` is excluded from active training features and retained for fairness auditing.
+- `AGE`, `MARRIAGE`, and `EDUCATION` are included as profile variables with explicit audit caveats.
+- `PAY_0` to `PAY_6` are treated as historical repayment-status variables, not post-outcome leakage.
+- Engineered features include utilization ratios, repayment ratios, recent delay, maximum delay, delayed-month count, average bill amount, and average payment amount.
 
-Saved coverage mapping:
+## 5. Leakage Controls
 
-- `reports/data_audit/five_block_dataset_mapping.md`
-- `reports/data_audit/five_block_dataset_mapping.csv`
+The leakage audit reports no detected target leakage or train/test overlap based on implemented checks.
 
-The dataset covers borrower profile, credit history, loan/exposure, financial health, and target blocks.
+Implemented checks:
 
-## Model Results
-
-Held-out stratified split metrics:
-
-| Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| XGBoost public | 0.8152 | 0.6584 | 0.3414 | 0.4496 | 0.7748 |
-| Logistic public | 0.7408 | 0.4375 | 0.6036 | 0.5073 | 0.7527 |
-
-Saved outputs:
-
-- `reports/model_validation/public_credit_model_comparison.csv`
-- `reports/model_validation/xgboost_public_model_metrics.json`
-- `reports/model_validation/logistic_public_model_metrics.json`
-
-No true temporal validation is reported because the UCI dataset has no application timestamp.
-
-## Leakage Audit
-
-Conclusion:
-
-> No detected target leakage or train/test overlap in the public UCI pipeline based on implemented checks.
-
-Implemented checks include target exclusion, ID exclusion, source-index overlap, duplicate selected-row overlap, target shuffle, mutual information, and UCI feature-timing review.
+- Target and ID exclusion from active features
+- Duplicate selected-row split handling
+- Source-index train/test overlap check
+- Target-shuffle sanity test
+- Mutual-information review
+- UCI feature-timing review
 
 Target-shuffle ROC-AUC: `0.4922`.
 
-Saved outputs:
+## 6. Models Compared
 
-- `reports/leakage_audit/leakage_audit_report.md`
-- `reports/leakage_audit/leakage_audit_summary.json`
+### Logistic Regression
 
-## Explainability
+Logistic regression is retained as a transparent linear benchmark.
 
-Saved artifacts:
+### XGBoost
 
-- `reports/explainability_reports/application_model/xgboost_public_shap_summary.png`
-- `reports/explainability_reports/application_model/xgboost_public_shap_local.png`
-- `reports/explainability_reports/application_model/xgboost_public_lime_local.png`
-- `reports/explainability_reports/application_model/xgboost_public_counterfactuals.json`
+XGBoost is the primary model family because it performs strongly on structured tabular credit data and remains compatible with SHAP/LIME explanations.
 
-Main explanation themes are recent repayment delay, delayed-month count, credit limit, bill-to-limit utilization, and repayment amount patterns.
+### Recall-Optimized XGBoost
 
-## Fairness And Mitigation
+The selected screening policy keeps the XGBoost model and lowers the operating threshold from `0.50` to `0.25`. The threshold was selected using validation data only.
+
+### Deep Neural Network Benchmark
+
+The DNN benchmark uses a TensorFlow/Keras MLP architecture `64 -> 32 -> 16 -> 1`. It was added as a controlled benchmark, not a forced replacement.
+
+## 7. Model Evaluation Metrics
+
+| Model / policy | Threshold | Accuracy | Precision | Recall | F1 | F2 | ROC-AUC | PR-AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Logistic public | 0.50 | 0.7408 | 0.4375 | 0.6036 | 0.5073 |  | 0.7527 |  |
+| XGBoost baseline | 0.50 | 0.8152 | 0.6584 | 0.3414 | 0.4496 | 0.3778 | 0.7748 | 0.5415 |
+| XGBoost recall policy | 0.25 | 0.7669 | 0.4777 | 0.5810 | 0.5243 | 0.5569 | 0.7748 | 0.5415 |
+| DNN baseline | 0.50 | 0.8131 | 0.6426 | 0.3482 | 0.4516 | 0.3833 | 0.7657 | 0.5212 |
+| DNN class-weighted | 0.50 | 0.7446 | 0.4429 | 0.6021 | 0.5104 | 0.5617 | 0.7664 | 0.5363 |
+| DNN recall policy | 0.30 | 0.7857 | 0.5149 | 0.5350 | 0.5248 | 0.5309 | 0.7657 | 0.5212 |
+
+## 8. Final Model Selection
+
+XGBoost remains the final model because it has better ROC-AUC and PR-AUC than the DNN baseline and its recall-optimized policy captures more defaults than the DNN recall policy.
+
+Final model statement:
+
+> The project uses XGBoost as the primary model and uses the recall-optimized threshold as a manual-review screening policy. The DNN is retained as a benchmark showing that additional complexity did not materially improve ranking quality or recall-policy performance.
+
+## 9. Explainability
+
+### SHAP
+
+SHAP is used for global and local explanations of the XGBoost model.
+
+### LIME
+
+LIME provides an additional local explanation view for applicant-level predictions.
+
+### Counterfactual Guidance
+
+Counterfactual guidance focuses on repayment timeliness, utilization, and repayment relative to bill amounts. It is decision-support guidance, not a guarantee of a lending outcome.
+
+### DNN Permutation Importance
+
+DNN explainability uses model-agnostic permutation importance as a fallback. This is diagnostic and approximate, and does not replace the clearer tree-model explanation workflow.
+
+## 10. Fairness Analysis
 
 Primary protected attribute: `SEX`.
 
-Favorable outcome: predicted non-default / low-risk approval decision.
+Favorable outcome: predicted non-default / lower-risk manual-review support.
 
-| Metric | Value |
-| --- | ---: |
-| Demographic parity difference | 0.0220 |
-| Equal opportunity difference | 0.0063 |
-| Equalized odds difference | 0.0225 |
-| Disparate impact ratio | 0.9754 |
+| Model / policy | Threshold | DP difference | Equal opportunity difference | Equalized odds difference | Disparate impact ratio |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| XGBoost baseline | 0.50 | 0.0220 | 0.0063 | 0.0225 | 0.9754 |
+| XGBoost recall policy | 0.25 | 0.0691 |  |  | 0.9089 |
+| DNN baseline | 0.50 | 0.0331 | 0.0133 | 0.0472 | 0.9629 |
+| DNN recall policy | 0.30 | 0.0537 | 0.0313 | 0.0589 | 0.9321 |
 
-Mitigation summary:
+These are diagnostic fairness metrics. They do not prove legal compliance or a bias-free model.
 
-| Method | ROC-AUC | Demographic parity difference | Disparate impact ratio |
-| --- | ---: | ---: | ---: |
-| Baseline | 0.7748 | 0.0220 | 0.9754 |
-| Reweighing | 0.7735 | 0.0226 | 0.9748 |
-| Fairlearn post-processing | 0.6473 | 0.0127 | 0.9857 |
+## 11. Dashboard User Journey
 
-Saved outputs:
+The Streamlit dashboard has three user-facing tabs:
 
-- `reports/fairness_reports/application_model/xgboost_public_fairness_metrics.json`
-- `reports/fairness_reports/application_model/xgboost_public_fairness_metrics.csv`
-- `reports/fairness_reports/application_model/xgboost_public_bias_mitigation_summary.json`
-- `reports/fairness_reports/application_model/xgboost_public_fairness_accuracy_tradeoff.csv`
+- Applicant Report: enter applicant details, get default risk, risk band, manual-review flag, maximum advisable credit exposure, drivers, and downloadable report.
+- Improvement Guidance: review shortcomings and simulate potential improvements.
+- Model Governance: inspect model metrics, threshold tradeoffs, leakage audit, fairness diagnostics, explainability artifacts, and ML-vs-DL comparisons.
 
-## Dashboard Status
+The default applicant prediction uses XGBoost. DNN appears only in governance/advanced comparison.
 
-The Streamlit dashboard has been migrated to UCI fields and artifacts.
+## 12. Business Relevance for Banks/NBFCs
 
-Run:
+The workflow demonstrates how a bank or NBFC could structure a model-supported credit-risk review process:
 
-```bash
-streamlit run dashboard/app.py
-```
+- Use the model score for manual-review support.
+- Use threshold tuning to improve default capture.
+- Use explanations to understand key risk drivers.
+- Use fairness diagnostics to inspect group-level tradeoffs.
+- Keep human oversight for final lending decisions.
 
-The dashboard remains a demonstration tool, not a production decision system or regulatory scorecard.
+## 13. Limitations
 
-## Future Scope
+- Public academic benchmark dataset, not production bank data
+- No true timestamp for temporal validation
+- No reject inference
+- No calibrated regulatory scorecard
+- No production monitoring or drift controls
+- Fairness metrics are diagnostic and observational
+- The dashboard is not a production lending system
 
-South German Credit, Bondora, and Home Credit are future scope only. They are not implemented as the current primary dataset.
+## 14. Future Scope
+
+- Add probability calibration and threshold governance.
+- Add a scorecard track with WOE/IV/binning/PDO/base odds.
+- Add additional public datasets only as separate validation sources.
+- Add intersectional fairness diagnostics where sample sizes support them.
+- Add drift monitoring and model monitoring before production use.
+
+## 15. Final Conclusion
+
+XGBoost remains the primary model. The recall-optimized threshold is the recommended screening policy for manual-review support. The DNN benchmark is useful because it verifies that a more complex neural network does not materially outperform the simpler and more explainable XGBoost workflow on this structured credit dataset.

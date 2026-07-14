@@ -1,0 +1,2 @@
+candidate_name,threshold,demographic_parity_difference,equalized_odds_difference,equal_opportunity_difference,disparate_impact_ratio
+xgboost_public_baseline_threshold_050,0.25,0.06907997098153773,0.07229641738937687,0.04677752212430675,0.9088833186222565

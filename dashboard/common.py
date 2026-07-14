@@ -64,6 +64,17 @@ def get_application_artifact_paths() -> dict[str, Path]:
         / "fairness_reports"
         / "application_model"
         / "xgboost_public_fairness_accuracy_tradeoff.csv",
+        "recall_summary": REPORTS_DIR / "model_validation" / "recall_optimized_summary.json",
+        "selected_recall_policy": REPORTS_DIR / "model_validation" / "selected_recall_policy.json",
+        "threshold_tuning": REPORTS_DIR / "model_validation" / "threshold_tuning_report.csv",
+        "threshold_selection": REPORTS_DIR / "model_validation" / "threshold_selection_summary.csv",
+        "precision_recall_curve": REPORTS_DIR
+        / "model_validation"
+        / "precision_recall_curve_comparison.png",
+        "threshold_fairness_comparison": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "threshold_fairness_comparison.csv",
         "leakage": REPORTS_DIR / "leakage_audit" / "leakage_audit_summary.json",
         "leakage_report": REPORTS_DIR / "leakage_audit" / "leakage_audit_report.md",
         "counterfactual": REPORTS_DIR
@@ -82,4 +93,19 @@ def get_application_artifact_paths() -> dict[str, Path]:
         / "explainability_reports"
         / "application_model"
         / "xgboost_public_lime_local.png",
+        "deep_learning_metrics": REPORTS_DIR / "model_validation" / "deep_learning_metrics.json",
+        "deep_learning_comparison": REPORTS_DIR
+        / "model_validation"
+        / "deep_learning_comparison.csv",
+        "ml_vs_dl_comparison": REPORTS_DIR / "model_validation" / "ml_vs_dl_comparison.csv",
+        "ml_vs_dl_precision_recall_curve": REPORTS_DIR
+        / "model_validation"
+        / "ml_vs_dl_precision_recall_curve.png",
+        "deep_learning_policy": REPORTS_DIR
+        / "model_validation"
+        / "deep_learning_selected_policy.json",
+        "deep_learning_fairness": REPORTS_DIR
+        / "fairness_reports"
+        / "deep_learning_model"
+        / "dnn_fairness_metrics.csv",
     }

@@ -11,6 +11,7 @@ from . import (
     bias_mitigation,
     counterfactuals,
     data_audit,
+    deep_learning_benchmark,
     evaluate_models,
     fairness_metrics,
     leakage_audit,
@@ -31,6 +32,11 @@ class PipelineStep:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Regenerate credit-default-xai model, validation, explainability, and fairness artifacts."
+    )
+    parser.add_argument(
+        "--skip-deep-learning",
+        action="store_true",
+        help="Skip the optional TensorFlow/Keras benchmark.",
     )
     parser.add_argument(
         "--skip-explainability",
@@ -58,6 +64,15 @@ def build_steps(args: argparse.Namespace) -> list[PipelineStep]:
         PipelineStep("Evaluate model variants", evaluate_models.run),
         PipelineStep("Run leakage audit", leakage_audit.run),
     ]
+
+    if not args.skip_deep_learning:
+        steps.append(
+            PipelineStep(
+                "Run optional deep learning benchmark",
+                deep_learning_benchmark.run,
+                group="deep_learning",
+            )
+        )
 
     if not args.skip_explainability:
         steps.extend(

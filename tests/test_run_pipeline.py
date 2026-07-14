@@ -11,6 +11,7 @@ def test_pipeline_default_order_includes_required_artifact_stages() -> None:
             skip_explainability=False,
             skip_counterfactuals=False,
             skip_mitigation=False,
+            skip_deep_learning=False,
         )
     )
 
@@ -20,6 +21,7 @@ def test_pipeline_default_order_includes_required_artifact_stages() -> None:
         "Train XGBoost models",
         "Evaluate model variants",
         "Run leakage audit",
+        "Run optional deep learning benchmark",
         "Generate SHAP artifacts",
         "Generate LIME artifacts",
         "Compute fairness metrics",
@@ -34,6 +36,7 @@ def test_pipeline_skip_flags_remove_optional_stages() -> None:
             skip_explainability=True,
             skip_counterfactuals=True,
             skip_mitigation=True,
+            skip_deep_learning=True,
         )
     )
 

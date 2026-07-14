@@ -24,6 +24,7 @@ def build_applicant_risk_report(
     negative_drivers: list[dict[str, Any]] | None = None,
     guidance: list[str] | None = None,
     threshold: float = DEFAULT_DECISION_THRESHOLD,
+    exposure_estimate: dict[str, Any] | None = None,
     shap_warning: str | None = None,
 ) -> dict[str, Any]:
     """Build a stakeholder-facing, non-regulatory applicant risk report."""
@@ -68,6 +69,26 @@ def build_applicant_risk_report(
     markdown_lines.extend(
         [f"- {item}" for item in guidance[:5]] or ["- Not available for this applicant."]
     )
+
+    if exposure_estimate:
+        probability_at_exposure = exposure_estimate.get("probability_at_exposure")
+        exposure_probability_text = (
+            "not available"
+            if probability_at_exposure is None
+            else f"{float(probability_at_exposure):.2%}"
+        )
+        markdown_lines.extend(
+            [
+                "",
+                "## Model-Supported Advisable Credit Exposure",
+                (
+                    "- Maximum advisable credit exposure tested: "
+                    f"**{float(exposure_estimate.get('max_exposure', 0.0)):,.0f}**"
+                ),
+                f"- Predicted risk at that simulated exposure: **{exposure_probability_text}**",
+                f"- Simulation note: {exposure_estimate.get('note', 'Not available.')}",
+            ]
+        )
 
     if shap_warning:
         markdown_lines.extend(["", "## Explanation Availability", f"- {shap_warning}"])
