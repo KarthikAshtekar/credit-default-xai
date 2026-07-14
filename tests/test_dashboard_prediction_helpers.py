@@ -201,3 +201,13 @@ def test_application_artifact_paths_resolve_to_public_reports() -> None:
         .as_posix()
         .endswith("reports/model_validation/ml_vs_dl_precision_recall_curve.png")
     )
+    assert (
+        paths["xgboost_test_predictions"]
+        .as_posix()
+        .endswith("reports/model_validation/xgboost_test_predictions.csv")
+    )
+    assert (
+        paths["dnn_test_predictions"]
+        .as_posix()
+        .endswith("reports/model_validation/dnn_test_predictions.csv")
+    )
