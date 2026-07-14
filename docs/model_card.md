@@ -19,6 +19,8 @@ This is not a production lending decision engine, not a regulatory credit scorec
 
 ## Model Family And Final Choice
 
+The final comparison also includes a TensorFlow/Keras MLP benchmark (`64-32-16-1` dense architecture with dropout and batch normalization). The baseline DNN achieved ROC-AUC `0.7657` and PR-AUC `0.5212`; its validation-selected `0.30` threshold achieved test recall `0.5350` at precision `0.5149`. Because these results do not materially improve on XGBoost, the DNN remains an experimental benchmark and is not used for applicant predictions.
+
 The final recommended model is `xgboost_public.pkl`. Logistic regression is retained as a transparent benchmark.
 
 Final held-out metrics for `xgboost_public`:

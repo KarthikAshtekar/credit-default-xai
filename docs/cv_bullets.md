@@ -6,6 +6,7 @@
 - Refactored the project from a private local dataset dependency to a reproducible `ucimlrepo` UCI pipeline with target normalization, feature engineering, fairness audit retention, and dashboard migration.
 - Engineered utilization and repayment-history features including bill-to-limit ratios, repayment-to-bill ratios, recent delay, maximum delay, delayed-month count, average bill amount, and payment-to-limit ratio.
 - Generated SHAP, LIME, counterfactual, fairness, mitigation, leakage audit, and Streamlit dashboard artifacts for the public UCI XGBoost model.
+- Added a TensorFlow/Keras DNN benchmark for public credit-default data, comparing ML vs DL on ROC-AUC, PR-AUC, recall, fairness, and model-agnostic explainability.
 - Added validation-only recall tuning with F2, PR-AUC, class weights, threshold selection, and fairness tradeoff reporting; improved held-out default recall from `0.3414` to `0.5810` for manual-review screening.
 - Documented protected-attribute policy by excluding `SEX` from active final training features while retaining it for fairness analysis.
 

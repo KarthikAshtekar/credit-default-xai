@@ -139,6 +139,18 @@ streamlit run dashboard/app.py
 
 The dashboard remains a demonstration tool, not a production decision system or regulatory scorecard.
 
+## Deep Learning Benchmark
+
+The controlled TensorFlow/Keras MLP benchmark uses the same application feature policy, excludes `SEX` from training while retaining it for fairness evaluation, and selects its operating threshold on validation data only.
+
+| Experiment | Threshold | Precision | Recall | F2 | ROC-AUC | PR-AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| DNN baseline | 0.50 | 0.6426 | 0.3482 | 0.3833 | 0.7657 | 0.5212 |
+| DNN class-weighted | 0.50 | 0.4429 | 0.6021 | 0.5617 | 0.7664 | 0.5363 |
+| DNN recall-optimized | 0.30 | 0.5149 | 0.5350 | 0.5309 | 0.7657 | 0.5212 |
+
+XGBoost remains primary because the DNN did not materially improve ranking or PR-AUC and its selected policy captured fewer defaults than the XGBoost recall policy. DNN permutation importance is explicitly diagnostic and approximate; fairness metrics are diagnostic rather than proof of legal compliance.
+
 ## Future Scope
 
 South German Credit, Bondora, and Home Credit are future scope only. They are not implemented as the current primary dataset.

@@ -249,6 +249,20 @@ ruff format --check .
 git diff --check
 ```
 
+## Deep Learning Benchmark
+
+A TensorFlow/Keras tabular MLP was added as a controlled model-family benchmark under the same public UCI dataset, application feature policy, stratified train/validation/test discipline, validation-only threshold selection, fairness audit, and explainability workflow. It tests whether additional complexity improves recall, PR-AUC, or ranking quality; it is not assumed to outperform tree boosting on structured credit data.
+
+| DNN experiment | Threshold | Accuracy | Precision | Recall | F1 | F2 | ROC-AUC | PR-AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 0.50 | 0.8131 | 0.6426 | 0.3482 | 0.4516 | 0.3833 | 0.7657 | 0.5212 |
+| Class-weighted | 0.50 | 0.7446 | 0.4429 | 0.6021 | 0.5104 | 0.5617 | 0.7664 | 0.5363 |
+| Recall-optimized baseline | 0.30 | 0.7857 | 0.5149 | 0.5350 | 0.5248 | 0.5309 | 0.7657 | 0.5212 |
+
+XGBoost remains the primary model: its ROC-AUC `0.7748` and PR-AUC `0.5415` exceed the DNN baseline, and its recall-optimized policy captures more defaults (`0.5810` recall). The DNN remains useful as evidence that final model selection is based on business-relevant metrics, fairness, explainability, and operational complexity rather than algorithm hype.
+
+Run `python -m src.deep_learning_benchmark`; use `--quick`, `--epochs`, `--skip-class-weighted`, or `--skip-explainability` when needed. If TensorFlow is unavailable, the command exits successfully and records a clear skipped status.
+
 ## Future Scope
 
 South German Credit, Bondora, and Home Credit are future-scope datasets only. They are not implemented as the current primary dataset.

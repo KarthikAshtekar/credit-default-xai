@@ -18,6 +18,12 @@ The baseline XGBoost achieved ROC-AUC 0.7748 and accuracy 0.8152, but default-cl
 
 For the selected policy, the model remains XGBoost but the screening threshold moves from `0.50` to `0.25`. Held-out recall increases from `0.3414` to `0.5810`, while precision moves from `0.6584` to `0.4777` and approval-support rate moves from `0.8854` to `0.7311`. The threshold was selected on validation data only and then evaluated once on the untouched test split.
 
+## Deep Learning Benchmark Defense
+
+The DNN was added as a controlled benchmark, not a forced replacement. I wanted to test whether a more flexible neural network improves default-risk ranking or recall enough to justify additional complexity. Since credit data is structured tabular data, XGBoost remains the primary benchmark unless the DNN clearly improves business-relevant metrics such as PR-AUC, recall at acceptable precision, and fairness.
+
+The baseline DNN produced ROC-AUC `0.7657` and PR-AUC `0.5212`, below XGBoost at `0.7748` and `0.5415`. Validation-only threshold tuning selected `0.30`; on the untouched test set it achieved recall `0.5350` and precision `0.5149`. The class-weighted DNN increased threshold-0.50 recall to `0.6021` but reduced precision to `0.4429`. These results make the DNN a useful learning and governance comparison, while XGBoost remains the evidence-based final model.
+
 ## Leakage Defense
 
 The audit checks target exclusion, ID exclusion, duplicate selected-row overlap, source-index overlap, target shuffle, mutual information, and feature timing. The result is:

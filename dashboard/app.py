@@ -149,6 +149,10 @@ counterfactual_path = artifact_paths["counterfactual"]
 shap_summary_path = artifact_paths["shap_summary"]
 shap_local_path = artifact_paths["shap_local"]
 lime_local_path = artifact_paths["lime_local"]
+deep_learning_metrics_path = artifact_paths["deep_learning_metrics"]
+deep_learning_comparison_path = artifact_paths["deep_learning_comparison"]
+deep_learning_policy_path = artifact_paths["deep_learning_policy"]
+deep_learning_fairness_path = artifact_paths["deep_learning_fairness"]
 
 (
     tab_overview,
@@ -159,6 +163,7 @@ lime_local_path = artifact_paths["lime_local"]
     tab_counterfactual,
     tab_scorecard,
     tab_leakage,
+    tab_governance,
 ) = st.tabs(
     [
         "Project Overview",
@@ -169,6 +174,7 @@ lime_local_path = artifact_paths["lime_local"]
         "Counterfactual Guidance",
         "Applicant Risk Scorecard Report",
         "Leakage Audit",
+        "Model Governance",
     ]
 )
 
@@ -655,3 +661,39 @@ with tab_leakage:
         st.caption(
             "`PAY_0` to `PAY_6` are historical repayment-status variables before the next-month target."
         )
+
+with tab_governance:
+    st.subheader("Advanced Model Comparison")
+    st.write(
+        "Deep Learning benchmark added to test whether model complexity improves default "
+        "detection on structured credit data. The applicant workflow continues to use XGBoost."
+    )
+    dnn_metrics = load_json(deep_learning_metrics_path)
+    dnn_comparison = load_csv(deep_learning_comparison_path)
+    dnn_policy = load_json(deep_learning_policy_path)
+    dnn_fairness = load_csv(deep_learning_fairness_path)
+
+    if dnn_metrics is None:
+        st.info(
+            "DNN reports are optional and currently unavailable. Run "
+            "`python -m src.deep_learning_benchmark` to generate them."
+        )
+    elif dnn_metrics.get("status") == "skipped":
+        st.warning(dnn_metrics.get("reason", "Deep Learning benchmark was skipped."))
+    else:
+        st.success("DNN benchmark artifacts are available; XGBoost remains the primary model.")
+        if dnn_policy:
+            policy_metrics = dnn_policy.get("test_metrics", {})
+            columns = st.columns(4)
+            columns[0].metric("DNN Threshold", f"{dnn_policy.get('selected_threshold', 0):.2f}")
+            columns[1].metric("DNN Recall", f"{policy_metrics.get('recall', 0):.2%}")
+            columns[2].metric("DNN Precision", f"{policy_metrics.get('precision', 0):.2%}")
+            columns[3].metric("DNN PR-AUC", f"{policy_metrics.get('pr_auc', 0):.4f}")
+
+    if dnn_comparison is not None:
+        st.markdown("**ML vs DL held-out comparison**")
+        st.dataframe(dnn_comparison, width="stretch")
+    if dnn_fairness is not None:
+        with st.expander("DNN fairness diagnostics"):
+            st.dataframe(dnn_fairness, width="stretch")
+            st.caption("Fairness metrics are diagnostic and are not proof of legal compliance.")

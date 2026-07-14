@@ -93,4 +93,15 @@ def get_application_artifact_paths() -> dict[str, Path]:
         / "explainability_reports"
         / "application_model"
         / "xgboost_public_lime_local.png",
+        "deep_learning_metrics": REPORTS_DIR / "model_validation" / "deep_learning_metrics.json",
+        "deep_learning_comparison": REPORTS_DIR
+        / "model_validation"
+        / "deep_learning_comparison.csv",
+        "deep_learning_policy": REPORTS_DIR
+        / "model_validation"
+        / "deep_learning_selected_policy.json",
+        "deep_learning_fairness": REPORTS_DIR
+        / "fairness_reports"
+        / "deep_learning_model"
+        / "dnn_fairness_metrics.csv",
     }

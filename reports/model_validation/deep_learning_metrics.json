@@ -1,0 +1,148 @@
+{
+  "status": "completed",
+  "tensorflow_available": true,
+  "tensorflow_version": "2.21.0",
+  "dataset": "uci:\\default_credit_card",
+  "feature_set": "application_public",
+  "protected_attribute_excluded_from_training": "SEX",
+  "architecture": [
+    64,
+    32,
+    16,
+    1
+  ],
+  "experiments": {
+    "dnn_baseline": {
+      "threshold_050": {
+        "threshold": 0.5,
+        "accuracy": 0.8130623125624792,
+        "precision": 0.6425591098748261,
+        "recall": 0.34815373021853807,
+        "specificity": 0.9450267379679145,
+        "f1": 0.45161290322580644,
+        "f2": 0.3832752613240418,
+        "false_positive_rate": 0.05497326203208556,
+        "false_negative_rate": 0.651846269781462,
+        "true_positives": 462,
+        "false_positives": 257,
+        "true_negatives": 4418,
+        "false_negatives": 865,
+        "predicted_default_rate": 0.11979340219926692,
+        "predicted_non_default_rate": 0.8802065978007331,
+        "approval_support_rate": 0.8802065978007331,
+        "default_capture_rate": 0.34815373021853807,
+        "expected_cost": 4582,
+        "roc_auc": 0.7657170490310258,
+        "pr_auc": 0.5212098829700869
+      },
+      "validation_pr_auc": 0.5666013841389548,
+      "class_weight": null
+    },
+    "dnn_class_weighted": {
+      "threshold_050": {
+        "threshold": 0.5,
+        "accuracy": 0.7445851382872376,
+        "precision": 0.4429046563192905,
+        "recall": 0.6021100226073851,
+        "specificity": 0.7850267379679144,
+        "f1": 0.510380070265091,
+        "f2": 0.561726659167604,
+        "false_positive_rate": 0.21497326203208555,
+        "false_negative_rate": 0.39788997739261495,
+        "true_positives": 799,
+        "false_positives": 1005,
+        "true_negatives": 3670,
+        "false_negatives": 528,
+        "predicted_default_rate": 0.30056647784071977,
+        "predicted_non_default_rate": 0.6994335221592802,
+        "approval_support_rate": 0.6994335221592802,
+        "default_capture_rate": 0.6021100226073851,
+        "expected_cost": 3645,
+        "roc_auc": 0.7663732676738573,
+        "pr_auc": 0.5362943957494026
+      },
+      "validation_pr_auc": 0.5593970209895162,
+      "class_weight": {
+        "0": 0.6420519406392694,
+        "1": 2.259919638372677
+      }
+    }
+  },
+  "selected_policy": {
+    "policy_name": "dnn_recall_optimized",
+    "source_experiment": "dnn_baseline",
+    "selected_threshold": 0.3,
+    "selection_rule": "maximize_recall_precision_050",
+    "fallback_used": false,
+    "selection_split": "validation",
+    "evaluation_split": "untouched_test",
+    "validation_metrics": {
+      "threshold": 0.3,
+      "accuracy": 0.7968333333333333,
+      "precision": 0.5386819484240688,
+      "recall": 0.5666917859834213,
+      "specificity": 0.8621870318852985,
+      "f1": 0.5523319867792875,
+      "f2": 0.5608591885441527,
+      "false_positive_rate": 0.13781296811470148,
+      "false_negative_rate": 0.43330821401657876,
+      "true_positives": 752,
+      "false_positives": 644,
+      "true_negatives": 4029,
+      "false_negatives": 575,
+      "predicted_default_rate": 0.23266666666666666,
+      "predicted_non_default_rate": 0.7673333333333333,
+      "approval_support_rate": 0.7673333333333333,
+      "default_capture_rate": 0.5666917859834213,
+      "expected_cost": 3519,
+      "candidate_name": "dnn_baseline",
+      "split": "validation"
+    },
+    "test_metrics": {
+      "threshold": 0.3,
+      "accuracy": 0.7857380873042319,
+      "precision": 0.5148658448150834,
+      "recall": 0.5350414468726451,
+      "specificity": 0.8568983957219252,
+      "f1": 0.524759793052476,
+      "f2": 0.5308808135187678,
+      "false_positive_rate": 0.14310160427807486,
+      "false_negative_rate": 0.46495855312735496,
+      "true_positives": 710,
+      "false_positives": 669,
+      "true_negatives": 4006,
+      "false_negatives": 617,
+      "predicted_default_rate": 0.22975674775074975,
+      "predicted_non_default_rate": 0.7702432522492503,
+      "approval_support_rate": 0.7702432522492503,
+      "default_capture_rate": 0.5350414468726451,
+      "expected_cost": 3754,
+      "roc_auc": 0.7657170490310258,
+      "pr_auc": 0.5212098829700869
+    },
+    "test_roc_auc": 0.7657170490310258,
+    "test_pr_auc": 0.5212098829700869
+  },
+  "fairness": [
+    {
+      "model_name": "dnn_baseline",
+      "threshold": 0.5,
+      "protected_attribute": "SEX",
+      "demographic_parity_difference": 0.03312040157040819,
+      "equalized_odds_difference": 0.0472440035835342,
+      "equal_opportunity_difference": 0.013257088292721209,
+      "disparate_impact_ratio": 0.9629185568434344
+    },
+    {
+      "model_name": "dnn_recall_optimized",
+      "threshold": 0.3,
+      "protected_attribute": "SEX",
+      "demographic_parity_difference": 0.05373157176774379,
+      "equalized_odds_difference": 0.05886278204169093,
+      "equal_opportunity_difference": 0.03128467553997616,
+      "disparate_impact_ratio": 0.9320962379632979
+    }
+  ],
+  "explainability": "permutation importance generated",
+  "primary_model_decision": "XGBoost remains primary pending material DNN superiority."
+}
