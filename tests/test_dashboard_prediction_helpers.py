@@ -7,6 +7,7 @@ import pandas as pd
 from dashboard.common import get_application_artifact_paths
 from dashboard.prediction_helpers import (
     EXCLUDED_USER_INPUT_FIELDS,
+    SEX_OPTIONS,
     USER_INPUT_FIELDS,
     build_applicant_model_row,
     build_applicant_presets,
@@ -17,6 +18,7 @@ from dashboard.prediction_helpers import (
     risk_band,
 )
 from src.dataset_adapters import APPLICATION_PUBLIC_FEATURES, PAY_STATUS_COLUMNS
+from src.protected_attributes import SEX_GROUP_LABELS
 
 
 def _reference_table() -> pd.DataFrame:
@@ -114,6 +116,7 @@ def test_dashboard_input_schema_excludes_engineered_features_as_user_input() -> 
     assert "AvgBillToLimitRatio" not in USER_INPUT_FIELDS
     assert "AvgBillToLimitRatio" in EXCLUDED_USER_INPUT_FIELDS
     assert "SEX" in USER_INPUT_FIELDS
+    assert SEX_OPTIONS == SEX_GROUP_LABELS
 
 
 def test_applicant_presets_use_only_user_input_fields() -> None:
@@ -210,4 +213,19 @@ def test_application_artifact_paths_resolve_to_public_reports() -> None:
         paths["dnn_test_predictions"]
         .as_posix()
         .endswith("reports/model_validation/dnn_test_predictions.csv")
+    )
+    assert (
+        paths["fairness_deep_dive_summary"]
+        .as_posix()
+        .endswith("reports/fairness_reports/application_model/fairness_deep_dive_summary.json")
+    )
+    assert (
+        paths["fairness_threshold_frontier"]
+        .as_posix()
+        .endswith("reports/fairness_reports/application_model/threshold_fairness_frontier.csv")
+    )
+    assert (
+        paths["fairness_individual_sensitivity"]
+        .as_posix()
+        .endswith("reports/fairness_reports/application_model/individual_sex_sensitivity.csv")
     )

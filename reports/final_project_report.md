@@ -104,18 +104,47 @@ DNN explainability uses model-agnostic permutation importance as a fallback. Thi
 
 ## 10. Fairness Analysis
 
-Primary protected attribute: `SEX`.
+Primary protected attribute: `SEX`/gender.
+
+Verified UCI coding:
+
+| SEX code | Group |
+| ---: | --- |
+| 1 | Male |
+| 2 | Female |
 
 Favorable outcome: predicted non-default / lower-risk manual-review support.
 
 | Model / policy | Threshold | DP difference | Equal opportunity difference | Equalized odds difference | Disparate impact ratio |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | XGBoost baseline | 0.50 | 0.0220 | 0.0063 | 0.0225 | 0.9754 |
-| XGBoost recall policy | 0.25 | 0.0691 |  |  | 0.9089 |
+| XGBoost recall policy | 0.25 | 0.0691 | 0.0468 | 0.0723 | 0.9089 |
 | DNN baseline | 0.50 | 0.0331 | 0.0133 | 0.0472 | 0.9629 |
 | DNN recall policy | 0.30 | 0.0537 | 0.0313 | 0.0589 | 0.9321 |
 
-These are diagnostic fairness metrics. They do not prove legal compliance or a bias-free model.
+Did we find discrimination? No legal discrimination or causal bias finding is made here. The metrics are diagnostic, not proof of legal compliance or complete fairness.
+
+What we did find is a fairness tradeoff. The baseline XGBoost threshold showed small group-level differences on `SEX`. The recall-optimized threshold improved default capture, but it widened demographic parity, equal opportunity, equalized odds, and disparate-impact gaps. That makes the recall policy a governance-sensitive choice: it may be useful for manual-review screening, but it should not be treated as fairness-neutral.
+
+### Protected-Attribute Fairness Deep Dive: SEX/Gender
+
+The deeper protected-attribute audit adds group outcome analysis, group error analysis, calibration analysis, proxy-risk analysis, feature association checks, SHAP driver comparison by group, a threshold fairness frontier, individual SEX sensitivity, and a nearest-neighbour individual fairness diagnostic.
+
+Main findings:
+
+- Group outcome analysis: at threshold `0.50`, high-risk flag rates were `0.1280` for Male applicants (SEX=1) and `0.1060` for Female applicants (SEX=2); at threshold `0.25`, they were `0.3109` and `0.2419`. Male applicants therefore had higher high-risk flag rates at both thresholds. These are governance diagnostics and do not prove legal discrimination.
+- Group error analysis: at threshold `0.50`, false-positive rates were `0.0542` for Male applicants and `0.0479` for Female applicants; false-negative rates were `0.6459` and `0.6684`. At threshold `0.25`, false-positive rates rose to `0.2094` and `0.1626`, while false-negative rates fell to `0.3782` and `0.4505`. Male applicants had higher FPR, while Female applicants had higher FNR.
+- Error-harm interpretation: a higher FPR means more actual non-defaulters are flagged high-risk, which may unnecessarily push reliable customers into manual review or lower credit support. A higher FNR means more actual defaulters are missed, which may increase lender default-risk exposure. These are different error harms and are treated as a fairness-governance signal, not proof of legal discrimination.
+- Threshold tradeoff: lowering XGBoost from threshold `0.50` to `0.25` improved recall from `0.3414` to `0.5810`, but widened demographic parity difference from `0.0220` to `0.0691` and equalized odds difference from `0.0225` to `0.0723`.
+- Calibration check: the largest absolute bin-level calibration gap was `0.0863`, so score calibration by group should be monitored before any real operational use.
+- Proxy-risk analysis: `SEX`/gender was moderately predictable from non-sensitive features. Random forest proxy ROC-AUC was `0.6476`; logistic proxy ROC-AUC was `0.5924`. This means removing `SEX` prevents direct use, but it is not a complete fairness strategy.
+- Feature association: the top proxy-associated features by standardized mean difference include `BillToLimitRatio_1`, `BillToLimitRatio_2`, `PAY_2`, `AvgBillToLimitRatio`, and `BillToLimitRatio_3`.
+- SHAP driver comparison completed. The strongest common drivers remained repayment and utilization variables such as `MaxPaymentDelay`, `PAY_0`, `BILL_AMT1`, `NumDelayedMonths`, and payment-amount features.
+- Threshold fairness frontier: threshold choice is a governance lever. Lowering the threshold improves default capture but can widen group-level fairness diagnostics and manual-review burden.
+- Individual SEX sensitivity: flipping `SEX` only caused maximum probability change `0.00000000` and zero baseline/recall-policy decision changes. This verifies no direct use of `SEX` in the active XGBoost prediction path, but it does not eliminate proxy concerns.
+- Nearest-neighbour diagnostic: median cross-group nearest-neighbour probability difference was `0.0278`, 90th percentile was `0.1156`, and `764` matched pairs exceeded `0.10` absolute probability difference. This is diagnostic and depends on the chosen distance metric.
+
+Final fairness interpretation: the protected-attribute deep dive does not establish legal discrimination or causal bias. It shows a diagnostic fairness-governance signal. Male applicants (SEX=1) had higher high-risk flag rates than Female applicants (SEX=2), and this gap widened under the recall-focused threshold. The recall-focused policy improved default capture but also widened demographic parity and equalized-odds differences. Individual sensitivity testing showed that flipping SEX alone did not change XGBoost predictions, confirming no direct use of SEX in the active prediction path. However, proxy analysis showed that SEX/gender is moderately predictable from non-sensitive credit variables, so removing SEX alone is not a complete fairness strategy. Therefore, the model should remain a decision-support tool requiring threshold governance, human oversight, and ongoing fairness monitoring.
 
 ## 11. Dashboard User Journey
 

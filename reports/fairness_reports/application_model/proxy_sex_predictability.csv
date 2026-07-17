@@ -1,0 +1,3 @@
+model,status,positive_class_sex_code,positive_class_sex_group,positive_class,accuracy,roc_auc,pr_auc
+proxy_logistic_regression,completed,2,Female,Female (SEX=2),0.6191269576807731,0.5923933602384389,0.6781187232178182
+proxy_random_forest,completed,2,Female,Female (SEX=2),0.6089636787737421,0.6475617583081775,0.7306064536493715

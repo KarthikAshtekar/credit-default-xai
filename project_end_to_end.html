@@ -1,0 +1,1304 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Credit Default XAI Project - End-to-End Explainer</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0b1020;
+      --panel: #111827;
+      --panel-2: #172033;
+      --text: #e5e7eb;
+      --muted: #aab6c7;
+      --line: #2b3548;
+      --accent: #38bdf8;
+      --accent-2: #22c55e;
+      --warn: #f59e0b;
+      --risk: #ef4444;
+      --code: #0f172a;
+      --shadow: rgba(0, 0, 0, 0.25);
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f7fafc;
+        --panel: #ffffff;
+        --panel-2: #eef2f7;
+        --text: #111827;
+        --muted: #4b5563;
+        --line: #d7dee8;
+        --accent: #0369a1;
+        --accent-2: #15803d;
+        --warn: #b45309;
+        --risk: #b91c1c;
+        --code: #f1f5f9;
+        --shadow: rgba(15, 23, 42, 0.08);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 34%), var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+
+    .hero {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 32px;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), transparent 42%), var(--panel);
+      box-shadow: 0 20px 60px var(--shadow);
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 0.78rem;
+      font-weight: 700;
+      margin: 0 0 10px;
+    }
+
+    h1, h2, h3, h4 {
+      line-height: 1.2;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 3.35rem);
+      max-width: 920px;
+    }
+
+    h2 {
+      font-size: clamp(1.55rem, 3vw, 2.2rem);
+      margin-top: 42px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      margin-top: 28px;
+    }
+
+    h4 {
+      font-size: 1rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    .lede {
+      color: var(--muted);
+      font-size: 1.08rem;
+      max-width: 940px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 11px;
+      background: rgba(56, 189, 248, 0.08);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      margin: 18px 0 24px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: color-mix(in srgb, var(--panel) 90%, transparent);
+      backdrop-filter: blur(10px);
+    }
+
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav a {
+      display: block;
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    nav a:hover {
+      background: var(--panel-2);
+      text-decoration: none;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+      margin: 16px 0 24px;
+    }
+
+    .card {
+      grid-column: span 4;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: var(--panel);
+      box-shadow: 0 12px 32px var(--shadow);
+    }
+
+    .card.wide {
+      grid-column: span 6;
+    }
+
+    .card.full {
+      grid-column: 1 / -1;
+    }
+
+    .metric {
+      color: var(--accent);
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    .metric.good {
+      color: var(--accent-2);
+    }
+
+    .metric.warn {
+      color: var(--warn);
+    }
+
+    .metric.risk {
+      color: var(--risk);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      display: table;
+    }
+
+    th, td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--text);
+      background: var(--panel-2);
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    td.num, th.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      padding: 14px 16px;
+      margin: 18px 0;
+      background: var(--panel);
+      border-radius: 12px;
+    }
+
+    .callout.warning {
+      border-left-color: var(--warn);
+    }
+
+    .callout.risk {
+      border-left-color: var(--risk);
+    }
+
+    .timeline {
+      counter-reset: step;
+      list-style: none;
+      padding-left: 0;
+      margin: 20px 0;
+    }
+
+    .timeline li {
+      counter-increment: step;
+      position: relative;
+      margin: 0 0 14px;
+      padding: 14px 16px 14px 56px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+
+    .timeline li::before {
+      content: counter(step);
+      position: absolute;
+      left: 16px;
+      top: 16px;
+      display: grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: var(--accent);
+      color: #06101d;
+      font-weight: 800;
+      font-size: 0.84rem;
+    }
+
+    code, pre {
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92rem;
+    }
+
+    code {
+      padding: 2px 5px;
+    }
+
+    pre {
+      padding: 14px 16px;
+      overflow-x: auto;
+    }
+
+    .source-list {
+      columns: 2;
+      column-gap: 28px;
+    }
+
+    .source-list li {
+      break-inside: avoid;
+      margin-bottom: 8px;
+    }
+
+    footer {
+      margin-top: 50px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 820px) {
+      .hero {
+        padding: 22px;
+      }
+
+      .card, .card.wide {
+        grid-column: 1 / -1;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+
+      nav {
+        position: static;
+      }
+
+      .source-list {
+        columns: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <p class="eyebrow">End-to-end project explainer</p>
+      <h1>Explainable and Fair Credit Default Risk Prediction</h1>
+      <p class="lede">
+        This file explains the whole project from dataset to dashboard: what data is used, how
+        features are prepared, why the models and explainability tools were chosen, how metrics
+        and threshold tuning are interpreted, what the results mean for a credit-risk workflow,
+        and what should be built next.
+      </p>
+      <div class="chips">
+        <span class="chip">Public UCI Taiwan credit-card default data</span>
+        <span class="chip">XGBoost primary model</span>
+        <span class="chip">Recall threshold for manual-review screening</span>
+        <span class="chip">SHAP, LIME, fairness, leakage audit</span>
+        <span class="chip">Decision-support only</span>
+      </div>
+    </section>
+
+    <nav aria-label="Report contents">
+      <ul>
+        <li><a href="#summary">Summary</a></li>
+        <li><a href="#business">Business sense</a></li>
+        <li><a href="#dataset">Dataset</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#preprocessing">Preprocessing</a></li>
+        <li><a href="#models">Models</a></li>
+        <li><a href="#metrics">Metrics and results</a></li>
+        <li><a href="#tuning">Tuning</a></li>
+        <li><a href="#explainability">Explainability</a></li>
+        <li><a href="#fairness">Fairness</a></li>
+        <li><a href="#dashboard">User roadmap</a></li>
+        <li><a href="#future">Future scope</a></li>
+      </ul>
+    </nav>
+
+    <section id="summary">
+      <h2>Technical summary: what this project proves</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Final model</h3>
+          <p class="metric good">XGBoost</p>
+          <p class="muted">Primary applicant-facing model for tabular credit-card default risk.</p>
+        </article>
+        <article class="card">
+          <h3>Primary dataset</h3>
+          <p class="metric">30,000 rows</p>
+          <p class="muted">UCI Default of Credit Card Clients, Taiwan credit-card default.</p>
+        </article>
+        <article class="card">
+          <h3>Operating policy</h3>
+          <p class="metric warn">0.25 threshold</p>
+          <p class="muted">Validation-selected threshold for default-risk manual-review screening.</p>
+        </article>
+      </div>
+      <p>
+        The project uses the public UCI Taiwan credit-card default dataset to build a responsible
+        credit-risk workflow. The model estimates next-month default risk, explains the drivers
+        of that risk, audits leakage and fairness concerns, compares machine-learning and
+        deep-learning alternatives, and exposes the final workflow in a Streamlit dashboard.
+      </p>
+      <p>
+        The final conclusion is deliberately practical: XGBoost remains the primary model because
+        it performs well on structured tabular data, beats the DNN benchmark on ranking quality,
+        and is easier to explain with SHAP and LIME. The recall-optimized policy keeps the same
+        XGBoost model but lowers the classification threshold from 0.50 to 0.25 for manual-review
+        screening, increasing test-set default recall from 34.14% to 58.10%.
+      </p>
+      <div class="callout warning">
+        <strong>Important boundary:</strong> this is an educational and portfolio-grade
+        decision-support project. It is not a production credit approval engine, a regulatory
+        scorecard, an adverse-action reason generator, or a substitute for legal, compliance,
+        model-risk, or underwriting review.
+      </div>
+    </section>
+
+    <section id="business">
+      <h2>Business problem and why the design makes sense</h2>
+      <p>
+        Credit-risk teams care about identifying customers who may default while avoiding
+        unnecessary friction for customers who are likely to repay. A model that only maximizes
+        accuracy can be misleading because defaults are the business-critical minority class.
+        Missing actual defaulters can be costly, but flagging too many reliable customers creates
+        manual-review workload and customer-experience friction.
+      </p>
+      <div class="grid">
+        <article class="card wide">
+          <h3>Business objective</h3>
+          <p>
+            Support a human credit-risk review workflow by estimating default risk, highlighting
+            the strongest drivers, and showing how threshold choice changes default capture,
+            precision, and review volume.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Why recall matters</h3>
+          <p>
+            Recall measures how many actual defaulters are captured. The recall policy captures
+            more risky cases for review, accepting more false positives as an explicit operational
+            tradeoff rather than hiding that tradeoff behind accuracy.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Why explanations matter</h3>
+          <p>
+            A risk score is not enough for review. SHAP, LIME, and counterfactual-style guidance
+            help translate the score into repayment, utilization, bill, and payment drivers that
+            a reviewer can reason about.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Why governance matters</h3>
+          <p>
+            Leakage checks, fairness metrics, ML-vs-DL comparisons, and threshold reports make
+            the result defensible. They also make clear what the project does not prove.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="dataset">
+      <h2>Dataset: public UCI Taiwan credit-card default data</h2>
+      <p>
+        The primary dataset is the <strong>UCI Default of Credit Card Clients</strong> dataset,
+        loaded through <code>ucimlrepo</code> with UCI dataset ID <code>350</code>. The target is
+        standardized in the project as <code>Default_Flag</code>, where <code>1</code> means the
+        customer defaulted in the next month.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Project value</th>
+            <th>Why it matters</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dataset</td>
+            <td>UCI Default of Credit Card Clients / Taiwan credit-card default</td>
+            <td>Public, reproducible, and suitable for portfolio review.</td>
+          </tr>
+          <tr>
+            <td>Rows</td>
+            <td>30,000</td>
+            <td>Large enough for held-out validation and model comparison.</td>
+          </tr>
+          <tr>
+            <td>Target</td>
+            <td><code>Default_Flag</code></td>
+            <td>Binary next-month default outcome; <code>1</code> is the default class.</td>
+          </tr>
+          <tr>
+            <td>Final feature set</td>
+            <td><code>application_public</code>, 36 active features</td>
+            <td>Uses public UCI fields and engineered behavior features while excluding <code>SEX</code> from training.</td>
+          </tr>
+          <tr>
+            <td>Split strategy</td>
+            <td>Stratified random held-out test split; 23,998 train rows and 6,002 test rows</td>
+            <td>The dataset has no true application timestamp, so the report does not fabricate temporal validation.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="features">
+      <h2>Feature design: what the model sees and why</h2>
+      <p>
+        The feature set is organized into borrower profile, repayment history, exposure, financial
+        health, and target. The final active training set excludes the direct protected attribute
+        <code>SEX</code>, while retaining it in audit data for fairness diagnostics.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Block</th>
+            <th>Columns</th>
+            <th>Interpretation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Borrower profile</td>
+            <td><code>SEX</code>, <code>EDUCATION</code>, <code>MARRIAGE</code>, <code>AGE</code></td>
+            <td><code>SEX</code> is audit-only for the active model; other profile variables are included with caveats.</td>
+          </tr>
+          <tr>
+            <td>Credit history</td>
+            <td><code>PAY_0</code>, <code>PAY_2</code>, <code>PAY_3</code>, <code>PAY_4</code>, <code>PAY_5</code>, <code>PAY_6</code></td>
+            <td>Historical repayment-status variables used to predict next-month default.</td>
+          </tr>
+          <tr>
+            <td>Loan / exposure</td>
+            <td><code>LIMIT_BAL</code></td>
+            <td>Customer credit exposure or limit amount.</td>
+          </tr>
+          <tr>
+            <td>Financial health</td>
+            <td>Six bill amounts, six payment amounts, utilization ratios, repayment ratios, delay summaries, average bill, average payment</td>
+            <td>Captures utilization, repayment capacity, payment behavior, and recent delinquency signals.</td>
+          </tr>
+          <tr>
+            <td>Target</td>
+            <td><code>Default_Flag</code></td>
+            <td>Held out from features; used only as the supervised learning label.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Engineered features and business meaning</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Feature family</th>
+            <th>Examples</th>
+            <th>Business interpretation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Utilization</td>
+            <td><code>BillToLimitRatio_1..6</code>, <code>AvgBillToLimitRatio</code></td>
+            <td>Higher bill balances relative to limit imply less repayment capacity buffer.</td>
+          </tr>
+          <tr>
+            <td>Repayment strength</td>
+            <td><code>AvgPaymentToBillRatio</code>, <code>PaymentToLimitRatio</code>, <code>AvgPaymentAmount</code></td>
+            <td>Shows whether recent payments are meaningful relative to balances and exposure.</td>
+          </tr>
+          <tr>
+            <td>Delinquency</td>
+            <td><code>RecentPaymentDelay</code>, <code>MaxPaymentDelay</code>, <code>NumDelayedMonths</code></td>
+            <td>Recent and repeated payment delay is a direct near-term default-risk signal.</td>
+          </tr>
+          <tr>
+            <td>Exposure and balance level</td>
+            <td><code>LIMIT_BAL</code>, <code>AvgBillAmount</code></td>
+            <td>Combines available credit and observed account usage.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="preprocessing">
+      <h2>Preprocessing and leakage controls</h2>
+      <p>
+        The pipeline standardizes column names, coerces numeric UCI fields, creates engineered
+        credit-risk features, removes ID-style columns, normalizes the binary target, and builds
+        a scikit-learn preprocessing pipeline with median imputation and scaling for numeric
+        features plus most-frequent imputation and one-hot encoding for categorical features.
+      </p>
+      <ol class="timeline">
+        <li>
+          <strong>Load data.</strong> <code>src.data_api_loader</code> supports UCI, local, and URL
+          sources. The final project path uses the UCI source by default.
+        </li>
+        <li>
+          <strong>Normalize schema.</strong> UCI columns such as <code>X1</code> and <code>Y</code>
+          are mapped to project names such as <code>LIMIT_BAL</code> and <code>Default_Flag</code>.
+        </li>
+        <li>
+          <strong>Engineer features.</strong> The pipeline creates utilization, payment-ratio,
+          delay-summary, average bill, and average payment features.
+        </li>
+        <li>
+          <strong>Select policy-compliant features.</strong> The <code>application_public</code>
+          feature set excludes <code>SEX</code> from active training but keeps it available for
+          fairness analysis.
+        </li>
+        <li>
+          <strong>Split and train.</strong> The final saved metrics use a held-out split with
+          train/test separation and no threshold selection on the test set.
+        </li>
+      </ol>
+      <div class="callout">
+        <strong>Leakage audit result:</strong> no detected target leakage or train/test overlap
+        based on implemented checks. The target-shuffle ROC-AUC is 0.4922, close to random,
+        which supports the conclusion that the pipeline is not learning a hidden copy of the
+        target.
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Leakage check</th>
+            <th class="num">Observed result</th>
+            <th>Interpretation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Target excluded from model features</td>
+            <td class="num">True</td>
+            <td>The supervised label is not passed as an input.</td>
+          </tr>
+          <tr>
+            <td>ID columns excluded from model features</td>
+            <td class="num">True</td>
+            <td>ID-style identifiers are not used as predictors.</td>
+          </tr>
+          <tr>
+            <td>Source-index train/test overlap</td>
+            <td class="num">0</td>
+            <td>No direct row-index overlap was detected.</td>
+          </tr>
+          <tr>
+            <td>Duplicate selected rows across train/test</td>
+            <td class="num">0</td>
+            <td>No duplicate selected-row leakage was detected.</td>
+          </tr>
+          <tr>
+            <td>Target-shuffle ROC-AUC</td>
+            <td class="num">0.4922</td>
+            <td>Near-random performance after target shuffle is a useful sanity check.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="models">
+      <h2>Models compared and why each exists</h2>
+      <p>
+        The project compares a transparent linear benchmark, a tree-boosting primary model, and
+        a neural-network benchmark. This structure is intentional: it shows that the final model
+        was selected against alternatives rather than assumed.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Role</th>
+            <th>Why included</th>
+            <th>Key implementation detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Logistic regression</td>
+            <td>Transparent benchmark</td>
+            <td>Simple, explainable baseline for comparison.</td>
+            <td><code>class_weight="balanced"</code>, <code>max_iter=1500</code>.</td>
+          </tr>
+          <tr>
+            <td>XGBoost</td>
+            <td>Primary model</td>
+            <td>Strong on structured tabular data and compatible with SHAP/LIME explanations.</td>
+            <td>150 trees, max depth 4, learning rate 0.05, subsample 0.9, column sample 0.9.</td>
+          </tr>
+          <tr>
+            <td>Recall-optimized XGBoost policy</td>
+            <td>Manual-review screening policy</td>
+            <td>Uses the same model but changes the operating threshold to capture more defaults.</td>
+            <td>Threshold 0.25 selected on validation data only.</td>
+          </tr>
+          <tr>
+            <td>TensorFlow/Keras DNN</td>
+            <td>Governance benchmark</td>
+            <td>Tests whether extra complexity improves ranking, recall, or PR-AUC enough to justify opacity.</td>
+            <td>MLP architecture 64 &rarr; 32 &rarr; 16 &rarr; 1.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>Final model decision:</strong> XGBoost remains primary because it has stronger
+        ROC-AUC and PR-AUC than the DNN baseline, better recall-policy default capture than the
+        DNN recall policy, and better operational explainability.
+      </div>
+    </section>
+
+    <section id="metrics">
+      <h2>Metrics and final results</h2>
+      <p>
+        Accuracy is reported, but it is not the main decision metric. Default risk is an imbalanced
+        classification problem, so the project focuses on precision, recall, F1, F2, ROC-AUC,
+        PR-AUC, and the non-default support rate implied by threshold choice.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Meaning</th>
+            <th>Why it matters here</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Precision</td>
+            <td>Of customers flagged as default risk, how many actually defaulted?</td>
+            <td>Measures review efficiency and false-positive burden.</td>
+          </tr>
+          <tr>
+            <td>Recall</td>
+            <td>Of actual defaulters, how many were captured?</td>
+            <td>Directly tied to default-risk screening value.</td>
+          </tr>
+          <tr>
+            <td>F2</td>
+            <td>F-score that weights recall more than precision.</td>
+            <td>Useful when missing actual defaults is more costly than sending more cases to review.</td>
+          </tr>
+          <tr>
+            <td>ROC-AUC</td>
+            <td>Overall ranking quality across thresholds.</td>
+            <td>Useful model-comparison measure, but can look optimistic in imbalanced settings.</td>
+          </tr>
+          <tr>
+            <td>PR-AUC</td>
+            <td>Precision-recall ranking quality for the positive/default class.</td>
+            <td>More directly tied to minority-class detection quality.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Held-out test results</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Model / policy</th>
+            <th class="num">Threshold</th>
+            <th class="num">Accuracy</th>
+            <th class="num">Precision</th>
+            <th class="num">Recall</th>
+            <th class="num">F2</th>
+            <th class="num">ROC-AUC</th>
+            <th class="num">PR-AUC</th>
+            <th class="num">Non-default support rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Logistic regression</td>
+            <td class="num">0.50</td>
+            <td class="num">0.7408</td>
+            <td class="num">0.4375</td>
+            <td class="num">0.6036</td>
+            <td class="num">0.5610</td>
+            <td class="num">0.7527</td>
+            <td class="num">0.5111</td>
+            <td class="num">0.6949</td>
+          </tr>
+          <tr>
+            <td>XGBoost baseline</td>
+            <td class="num">0.50</td>
+            <td class="num">0.8152</td>
+            <td class="num">0.6584</td>
+            <td class="num">0.3414</td>
+            <td class="num">0.3778</td>
+            <td class="num">0.7748</td>
+            <td class="num">0.5415</td>
+            <td class="num">0.8854</td>
+          </tr>
+          <tr>
+            <td>XGBoost recall policy</td>
+            <td class="num">0.25</td>
+            <td class="num">0.7669</td>
+            <td class="num">0.4777</td>
+            <td class="num">0.5810</td>
+            <td class="num">0.5569</td>
+            <td class="num">0.7748</td>
+            <td class="num">0.5415</td>
+            <td class="num">0.7311</td>
+          </tr>
+          <tr>
+            <td>DNN baseline</td>
+            <td class="num">0.50</td>
+            <td class="num">0.8131</td>
+            <td class="num">0.6426</td>
+            <td class="num">0.3482</td>
+            <td class="num">0.3833</td>
+            <td class="num">0.7657</td>
+            <td class="num">0.5212</td>
+            <td class="num">0.8802</td>
+          </tr>
+          <tr>
+            <td>DNN recall policy</td>
+            <td class="num">0.30</td>
+            <td class="num">0.7857</td>
+            <td class="num">0.5149</td>
+            <td class="num">0.5350</td>
+            <td class="num">0.5309</td>
+            <td class="num">0.7657</td>
+            <td class="num">0.5212</td>
+            <td class="num">0.7702</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="grid">
+        <article class="card wide">
+          <h3>What improved with the recall policy?</h3>
+          <p>
+            Default-class recall improved from 34.14% at the XGBoost 0.50 baseline threshold to
+            58.10% at the 0.25 recall-policy threshold. That means more actual defaulters are
+            routed to manual review.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>What tradeoff did it create?</h3>
+          <p>
+            Precision dropped from 65.84% to 47.77%, and the non-default support rate dropped
+            from 88.54% to 73.11%. This is the expected cost of a more sensitive screening policy.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="tuning">
+      <h2>Threshold tuning: how the operating policy was selected</h2>
+      <p>
+        The model produces probabilities. A threshold turns those probabilities into a screening
+        flag. The default 0.50 threshold is not a business law; it is just a conventional cutoff.
+        This project tunes the threshold because the business objective is to capture more actual
+        defaults for manual review.
+      </p>
+      <ol class="timeline">
+        <li>
+          <strong>Create an untouched test split.</strong> Test data is held out from selection.
+        </li>
+        <li>
+          <strong>Use inner-train and validation data.</strong> Candidate thresholds are evaluated
+          on validation data, not on test data.
+        </li>
+        <li>
+          <strong>Apply the primary selection rule.</strong> Select the threshold that maximizes
+          recall while maintaining validation precision of at least 0.50.
+        </li>
+        <li>
+          <strong>Evaluate once on test.</strong> The selected threshold is then evaluated on the
+          held-out test split to estimate out-of-sample performance.
+        </li>
+      </ol>
+      <table>
+        <thead>
+          <tr>
+            <th>Threshold</th>
+            <th class="num">Validation precision</th>
+            <th class="num">Validation recall</th>
+            <th class="num">Validation F2</th>
+            <th>Interpretation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">0.10</td>
+            <td class="num">0.2920</td>
+            <td class="num">0.9171</td>
+            <td class="num">0.6421</td>
+            <td>Very high recall, but too many false positives for the selected precision guardrail.</td>
+          </tr>
+          <tr>
+            <td class="num">0.20</td>
+            <td class="num">0.4366</td>
+            <td class="num">0.7167</td>
+            <td class="num">0.6352</td>
+            <td>Still below the precision guardrail.</td>
+          </tr>
+          <tr>
+            <td class="num">0.25</td>
+            <td class="num">0.5006</td>
+            <td class="num">0.6285</td>
+            <td class="num">0.5979</td>
+            <td>Selected: highest validation recall while meeting precision &ge; 0.50.</td>
+          </tr>
+          <tr>
+            <td class="num">0.30</td>
+            <td class="num">0.5492</td>
+            <td class="num">0.5674</td>
+            <td class="num">0.5637</td>
+            <td>Higher precision, lower recall than the selected threshold.</td>
+          </tr>
+          <tr>
+            <td class="num">0.50</td>
+            <td class="num">0.6782</td>
+            <td class="num">0.3519</td>
+            <td class="num">0.3883</td>
+            <td>Conservative default threshold with weaker default capture.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="explainability">
+      <h2>Explainability: concepts used and why they are useful</h2>
+      <p>
+        Explainability is not decorative in this project. It is part of the business workflow:
+        a reviewer needs to understand why a borrower is flagged, which drivers are important,
+        and what kind of behavior change might lower model-estimated risk.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Technique</th>
+            <th>What it explains</th>
+            <th>Why used here</th>
+            <th>Caveat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>SHAP</td>
+            <td>Global and local contribution of each feature to XGBoost predictions.</td>
+            <td>Strong fit for tree models; supports applicant-level reason summaries.</td>
+            <td>Explains the model, not causal reality.</td>
+          </tr>
+          <tr>
+            <td>LIME</td>
+            <td>Local approximation around one applicant prediction.</td>
+            <td>Provides a second local explanation view to compare with SHAP.</td>
+            <td>Local surrogate explanations can vary by sampling choices.</td>
+          </tr>
+          <tr>
+            <td>Counterfactual-style guidance</td>
+            <td>Scenario-based changes in repayment, utilization, and exposure assumptions.</td>
+            <td>Converts model behavior into practical improvement guidance.</td>
+            <td>It is decision-support guidance, not a guaranteed outcome.</td>
+          </tr>
+          <tr>
+            <td>DNN permutation importance</td>
+            <td>Drop in PR-AUC when one feature is permuted.</td>
+            <td>Model-agnostic fallback for a more opaque neural network benchmark.</td>
+            <td>Approximate and diagnostic; not a replacement for tree-model explanations.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Top model drivers are economically plausible</h3>
+      <p>
+        The leading XGBoost importance and DNN permutation-importance signals emphasize repayment
+        delay, number of delayed months, bill-to-limit behavior, payments, and credit exposure.
+        This is economically plausible: customers with recent and repeated delays, higher
+        utilization, or weak repayment amounts should carry higher near-term default risk.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Evidence source</th>
+            <th>Leading drivers</th>
+            <th>Interpretation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>XGBoost feature importance</td>
+            <td><code>RecentPaymentDelay</code>, <code>MaxPaymentDelay</code>, <code>PAY_0</code>, <code>NumDelayedMonths</code>, <code>AvgBillAmount</code></td>
+            <td>Tree model focuses on recent delinquency and balance behavior.</td>
+          </tr>
+          <tr>
+            <td>DNN permutation importance</td>
+            <td><code>PAY_0</code>, <code>RecentPaymentDelay</code>, <code>NumDelayedMonths</code>, <code>PAY_6</code>, <code>BillToLimitRatio_2</code></td>
+            <td>Neural benchmark points to similar repayment and utilization signals.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="fairness">
+      <h2>Fairness and governance: what was audited</h2>
+      <p>
+        The protected attribute used for fairness diagnostics is <code>SEX</code>/gender. The
+        verified UCI coding is <code>SEX=1</code> for Male and <code>SEX=2</code> for Female.
+        The favorable outcome is predicted non-default / lower-risk manual-review support. The
+        active XGBoost training feature set excludes <code>SEX</code>, but the audit data retains
+        it so group-level diagnostics can be computed.
+      </p>
+      <div class="callout">
+        <strong>Did we find discrimination?</strong> We did not prove legal discrimination or
+        causal bias. What we did find is a diagnostic fairness-governance signal. Male applicants
+        (SEX=1) had higher high-risk flag rates than Female applicants (SEX=2), and Female
+        applicants had higher false-negative rates. The protected attribute was not used directly
+        in the active prediction path, but changing the threshold still widened group-level
+        fairness metrics enough that a real lender would need governance review before using that
+        policy.
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Policy</th>
+            <th class="num">Threshold</th>
+            <th class="num">Demographic parity diff.</th>
+            <th class="num">Equal opportunity diff.</th>
+            <th class="num">Equalized odds diff.</th>
+            <th class="num">Disparate impact ratio</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>XGBoost baseline</td>
+            <td class="num">0.50</td>
+            <td class="num">0.0220</td>
+            <td class="num">0.0063</td>
+            <td class="num">0.0225</td>
+            <td class="num">0.9754</td>
+          </tr>
+          <tr>
+            <td>XGBoost recall policy</td>
+            <td class="num">0.25</td>
+            <td class="num">0.0691</td>
+            <td class="num">0.0468</td>
+            <td class="num">0.0723</td>
+            <td class="num">0.9089</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>Deeper protected-attribute fairness analysis</h3>
+      <p>
+        The deep-dive module adds group outcome analysis, error-rate audit, calibration check,
+        proxy-risk analysis, feature association diagnostics, SHAP driver comparison,
+        threshold fairness frontier, individual SEX sensitivity, and a nearest-neighbour
+        individual fairness diagnostic. These reports preserve both numeric SEX codes and readable
+        Male/Female labels. They are governance diagnostics; they are not proof of legal
+        discrimination and make no causal bias claim.
+      </p>
+      <div class="grid">
+        <article class="card wide">
+          <h3>Outcome differences by verified group</h3>
+          <p>
+            At threshold <code>0.50</code>, high-risk flag rates were <code>0.1280</code>
+            for Male applicants (SEX=1) and <code>0.1060</code> for Female applicants (SEX=2).
+            At threshold <code>0.25</code>, they increased to <code>0.3109</code> and
+            <code>0.2419</code>. Male applicants had higher high-risk flag rates at both
+            thresholds. This is a threshold governance signal, not a legal conclusion.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Error harms differ by group</h3>
+          <p>
+            At threshold <code>0.50</code>, Male FPR was <code>0.0542</code> versus Female FPR
+            <code>0.0479</code>, while Female FNR was <code>0.6684</code> versus Male FNR
+            <code>0.6459</code>. At threshold <code>0.25</code>, Male FPR was
+            <code>0.2094</code> versus Female FPR <code>0.1626</code>, while Female FNR was
+            <code>0.4505</code> versus Male FNR <code>0.3782</code>. Higher FPR affects actual
+            non-defaulters through more high-risk flags; higher FNR increases lender exposure by
+            missing actual defaulters.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Threshold fairness frontier</h3>
+          <p>
+            Lowering XGBoost from <code>0.50</code> to <code>0.25</code> improved recall from
+            <code>0.3414</code> to <code>0.5810</code>, but widened demographic parity difference
+            from <code>0.0220</code> to <code>0.0691</code> and equalized odds difference from
+            <code>0.0225</code> to <code>0.0723</code>. Threshold choice is therefore a governance
+            decision, not only a model-performance decision.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Proxy-risk analysis</h3>
+          <p>
+            A random-forest proxy model predicted <code>SEX</code>/gender from non-sensitive
+            variables with ROC-AUC <code>0.6476</code>. Top proxy-associated variables
+            included <code>BillToLimitRatio_1</code>, <code>BillToLimitRatio_2</code>,
+            <code>PAY_2</code>, <code>AvgBillToLimitRatio</code>, and
+            <code>BillToLimitRatio_3</code>. This means removing <code>SEX</code> is
+            necessary for direct-use control but not sufficient as a complete fairness strategy.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Direct-use sensitivity</h3>
+          <p>
+            Flipping <code>SEX</code> only produced maximum probability change
+            <code>0.00000000</code> and zero baseline or recall-policy decision changes.
+            This verifies no direct use of <code>SEX</code> in the active XGBoost prediction
+            path, but it does not rule out proxy effects through other variables.
+          </p>
+        </article>
+        <article class="card wide">
+          <h3>Calibration and individual fairness</h3>
+          <p>
+            The calibration check found a largest bin-level calibration gap of
+            <code>0.0863</code>. The nearest-neighbour diagnostic found median cross-group
+            score difference <code>0.0278</code> and 90th percentile difference
+            <code>0.1156</code>. Both are diagnostic fairness-risk signals, not conclusive
+            legal or causal findings.
+          </p>
+        </article>
+      </div>
+      <div class="callout warning">
+        <strong>Interpretation:</strong> the protected-attribute deep dive does not establish
+        legal discrimination or causal bias. It shows a diagnostic fairness-governance signal:
+        Male applicants (SEX=1) had higher high-risk flag rates, Female applicants (SEX=2) had
+        higher false-negative rates, the recall-focused threshold improved default capture while
+        widening several fairness metrics, and proxy signal remains possible even though
+        <code>SEX</code> is not directly used in the active XGBoost prediction path. The model
+        should remain a decision-support tool requiring threshold governance, calibration
+        monitoring, proxy-risk review, and human oversight before any real operational use.
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <h2>Complete roadmap from the user's perspective</h2>
+      <p>
+        The project has two user journeys: a repo reviewer journey and a dashboard user journey.
+        The reviewer journey explains how an outsider should inspect or reproduce the work. The
+        dashboard journey explains how a non-technical reviewer or credit-risk stakeholder uses
+        the local app.
+      </p>
+
+      <h3>Repository reviewer roadmap</h3>
+      <ol class="timeline">
+        <li>
+          <strong>Start here.</strong> Read this HTML file for the complete narrative, then read
+          <a href="../README.md">README.md</a> for quick setup commands.
+        </li>
+        <li>
+          <strong>Check governance summaries.</strong> Review
+          <a href="model_card.md">docs/model_card.md</a> and
+          <a href="interview_defense.md">docs/interview_defense.md</a>.
+        </li>
+        <li>
+          <strong>Inspect saved results.</strong> Open
+          <a href="../reports/final_project_report.md">reports/final_project_report.md</a>,
+          <a href="../reports/model_validation/ml_vs_dl_comparison.md">ML-vs-DL comparison</a>,
+          <a href="../reports/model_validation/recall_optimized_summary.md">recall summary</a>,
+          <a href="../reports/leakage_audit/leakage_audit_report.md">leakage audit</a>, and
+          <a href="../reports/fairness_reports/application_model/threshold_fairness_comparison.md">fairness comparison</a>.
+        </li>
+        <li>
+          <strong>Review source implementation.</strong> Key files are
+          <code>src/data_api_loader.py</code>, <code>src/dataset_adapters.py</code>,
+          <code>src/data_preprocessing.py</code>, <code>src/train_xgboost.py</code>,
+          <code>src/recall_optimization.py</code>, <code>src/shap_explainer.py</code>,
+          <code>src/lime_explainer.py</code>, and <code>dashboard/app.py</code>.
+        </li>
+        <li>
+          <strong>Reproduce if needed.</strong> Install dependencies, run the pipeline, run tests,
+          and launch the dashboard using the commands below.
+        </li>
+      </ol>
+
+      <h3>Dashboard user roadmap</h3>
+      <ol class="timeline">
+        <li>
+          <strong>Open Applicant Report.</strong> Enter a compact applicant profile with target
+          credit amount, repayment status, average bill amount, and average payment amount.
+        </li>
+        <li>
+          <strong>Generate the risk report.</strong> The dashboard returns predicted default risk,
+          risk band, manual-review signal, and maximum advisable credit exposure.
+        </li>
+        <li>
+          <strong>Read the explanation.</strong> The report translates model drivers into
+          repayment, utilization, and payment behavior language.
+        </li>
+        <li>
+          <strong>Use Improvement Guidance.</strong> Review shortcomings, why each issue matters,
+          and simulate changes such as lower exposure, better repayment delay, higher average
+          payment, or lower bill amount.
+        </li>
+        <li>
+          <strong>Use Model Governance.</strong> Technical users inspect XGBoost metrics,
+          threshold tradeoffs, DNN benchmark results, fairness diagnostics, leakage audit, and
+          explainability artifacts.
+        </li>
+      </ol>
+
+      <h3>How to run the project locally</h3>
+      <pre><code>python -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+
+python -m src.run_pipeline
+python -m src.recall_optimization
+python -m src.deep_learning_benchmark
+streamlit run dashboard/app.py
+
+python -m compileall src dashboard
+pytest
+ruff check .
+ruff format --check .
+git diff --check</code></pre>
+    </section>
+
+    <section id="future">
+      <h2>Limitations and future scope</h2>
+      <p>
+        The project is intentionally honest about what it has not solved. That is important for
+        credit-risk work because a clean prototype is not the same as a production lending system.
+      </p>
+      <div class="grid">
+        <article class="card wide">
+          <h3>Current limitations</h3>
+          <ul>
+            <li>Public academic dataset, not production bank data.</li>
+            <li>No true chronological application timestamp for time-based validation.</li>
+            <li>No reject inference or application population correction.</li>
+            <li>No calibrated regulatory scorecard.</li>
+            <li>No production monitoring, access control, drift governance, or legal workflow.</li>
+            <li>Fairness metrics are diagnostic and observational, not causal or compliance proof.</li>
+          </ul>
+        </article>
+        <article class="card wide">
+          <h3>Future roadmap</h3>
+          <ul>
+            <li>Add probability calibration and calibration monitoring.</li>
+            <li>Add threshold governance with review-capacity and cost-sensitivity inputs.</li>
+            <li>Build a parallel scorecard track with WOE/IV/binning/PDO/base odds.</li>
+            <li>Add true time-based validation if timestamped application data becomes available.</li>
+            <li>Add intersectional fairness diagnostics where sample sizes support them.</li>
+            <li>Add drift monitoring, challenger-model review, and model-risk governance controls.</li>
+            <li>Validate on additional public credit-risk datasets as separate external checks.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="sources">
+      <h2>Source artifacts used to build this explainer</h2>
+      <ul class="source-list">
+        <li><a href="../README.md">README.md</a></li>
+        <li><a href="../reports/final_project_report.md">reports/final_project_report.md</a></li>
+        <li><a href="model_card.md">docs/model_card.md</a></li>
+        <li><a href="interview_defense.md">docs/interview_defense.md</a></li>
+        <li><a href="../reports/artifact_index.md">reports/artifact_index.md</a></li>
+        <li><a href="../reports/data_audit/five_block_dataset_mapping.md">five-block dataset mapping</a></li>
+        <li><a href="../reports/model_validation/xgboost_public_model_metrics.json">XGBoost metrics JSON</a></li>
+        <li><a href="../reports/model_validation/selected_recall_policy.json">selected recall policy JSON</a></li>
+        <li><a href="../reports/model_validation/deep_learning_metrics.json">deep learning metrics JSON</a></li>
+        <li><a href="../reports/model_validation/ml_vs_dl_comparison.md">ML-vs-DL comparison</a></li>
+        <li><a href="../reports/leakage_audit/leakage_audit_report.md">leakage audit report</a></li>
+        <li><a href="../reports/fairness_reports/application_model/threshold_fairness_comparison.csv">threshold fairness comparison</a></li>
+        <li><a href="../reports/fairness_reports/application_model/fairness_deep_dive_summary.md">fairness deep-dive summary</a></li>
+        <li><code>src/fairness_deep_dive.py</code></li>
+        <li><code>src/data_api_loader.py</code>, <code>src/dataset_adapters.py</code>, <code>src/data_preprocessing.py</code></li>
+        <li><code>src/model_builders.py</code>, <code>src/train_xgboost.py</code>, <code>src/recall_optimization.py</code></li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>
+        Generated as a repository documentation artifact on 2026-07-17. It summarizes the current
+        saved artifacts and code paths in this checkout; rerun the pipeline and update this file
+        if model metrics or governance artifacts change.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>

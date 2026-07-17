@@ -8,7 +8,9 @@ from dashboard.charts import (
     build_model_comparison_chart,
     build_pr_curve_chart,
     build_scenario_curve_chart,
+    build_threshold_fairness_frontier_chart,
     build_threshold_tradeoff_chart,
+    load_report_csv_safely,
 )
 from dashboard.scenarios import (
     build_summary_applicant_inputs,
@@ -143,13 +145,33 @@ def test_plotly_chart_builders_return_figures() -> None:
     )
     assert fairness_fig is not None
 
+    frontier_fig = build_threshold_fairness_frontier_chart(
+        pd.DataFrame(
+            {
+                "threshold": [0.25, 0.50],
+                "precision": [0.48, 0.66],
+                "recall": [0.58, 0.34],
+                "demographic_parity_difference": [0.069, 0.022],
+                "equalized_odds_difference": [0.072, 0.023],
+            }
+        )
+    )
+    assert frontier_fig is not None
+    assert len(frontier_fig.data) == 4
+
 
 def test_chart_builders_handle_missing_data_gracefully() -> None:
     assert build_pr_curve_chart({}) is None
     assert build_threshold_tradeoff_chart(pd.DataFrame()) is None
     assert build_model_comparison_chart(None) is None
     assert build_fairness_chart(None) is None
+    assert build_threshold_fairness_frontier_chart(None) is None
     assert build_scenario_curve_chart(pd.DataFrame(), 0.25) is None
+
+
+def test_dashboard_deep_dive_missing_artifact_guard(tmp_path) -> None:
+    assert load_report_csv_safely(tmp_path / "missing_deep_dive.csv") is None
+    assert build_threshold_fairness_frontier_chart(pd.DataFrame({"threshold": [0.25]})) is None
 
 
 def test_scenario_outputs_are_valid() -> None:

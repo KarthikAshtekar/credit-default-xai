@@ -4,9 +4,29 @@ from __future__ import annotations
 
 from typing import Any
 
+import pandas as pd
+
 from dashboard.prediction_helpers import decision_support_recommendation, risk_band
+from src.protected_attributes import sex_group, sex_group_display
 
 DEFAULT_DECISION_THRESHOLD = 0.50
+
+
+def add_fairness_group_labels(frame: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Ensure fairness governance tables have numeric and readable SEX labels."""
+
+    if frame is None:
+        return None
+
+    output = frame.copy()
+    if "sex_code" not in output.columns:
+        source = output["group"] if "group" in output.columns else pd.Series([None] * len(output))
+        output["sex_code"] = source.astype(str).str.extract(r"SEX=?\s*(\d+)")[0]
+        output["sex_code"] = pd.to_numeric(output["sex_code"], errors="coerce").astype("Int64")
+
+    output["sex_group"] = output["sex_code"].map(lambda value: sex_group(value))
+    output["group"] = output["sex_code"].map(lambda value: sex_group_display(value))
+    return output
 
 
 def _driver_line(driver: dict[str, Any]) -> str:
@@ -97,7 +117,7 @@ def build_applicant_risk_report(
         [
             "",
             "## Governance Notes",
-            "- Fairness caveat: saved fairness metrics are group-level diagnostics and do not prove the model is bias-free for every applicant.",
+            "- Fairness caveat: saved fairness metrics are group-level diagnostics and do not prove complete fairness for every applicant.",
             "- Leakage-safe feature note: this report uses historical UCI repayment, bill, and payment fields available before the next-month default target.",
             "- Feature-policy note: SEX is used for fairness auditing and excluded from active final training features.",
             "- Limitation: this is not a production lending decision engine and is not a calibrated regulatory credit scorecard.",
