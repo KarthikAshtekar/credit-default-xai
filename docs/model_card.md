@@ -79,7 +79,14 @@ The DNN did not materially improve ranking quality or recall-policy performance.
 
 ## Fairness Metrics
 
-Primary protected attribute: `SEX`.
+Primary protected attribute: `SEX`/gender.
+
+Verified UCI coding:
+
+| SEX code | Group |
+| ---: | --- |
+| 1 | Male |
+| 2 | Female |
 
 Favorable outcome: predicted non-default / lower-risk manual-review support.
 
@@ -93,9 +100,48 @@ Baseline XGBoost at threshold `0.50`:
 Recall XGBoost at threshold `0.25`:
 
 - Demographic parity difference: `0.0691`
+- Equal opportunity difference: `0.0468`
+- Equalized odds difference: `0.0723`
 - Disparate impact ratio: `0.9089`
 
 These fairness metrics are diagnostic. They do not prove legal compliance or absence of bias.
+
+Fairness conclusion: the audit did not prove discrimination. The baseline XGBoost policy showed small group-level differences on `SEX`, while the recall-optimized threshold widened those differences. The noteworthy result is therefore a fairness-governance tradeoff, not a confirmed discrimination finding.
+
+## Protected Attribute: SEX/Gender
+
+- Source coding: `1 = Male`, `2 = Female`.
+- Intended fairness use: audit only. `SEX` is retained for diagnostic fairness reporting and is not an active final XGBoost prediction feature.
+- Direct-use check: individual sensitivity testing showed maximum probability change `0.00000000` and zero decision changes when `SEX` alone was flipped.
+- Proxy-risk check: `SEX`/gender was moderately predictable from non-sensitive variables; the best proxy model ROC-AUC was `0.6476`.
+- Threshold risk: lowering the XGBoost threshold from `0.50` to `0.25` improved recall but widened demographic parity and equalized-odds differences.
+- Monitoring requirement: group-level outcome monitoring, group-level error monitoring, calibration monitoring, proxy-risk monitoring, and threshold governance.
+
+## Fairness Deep Dive on Protected Attribute SEX
+
+Additional diagnostic artifacts under `reports/fairness_reports/application_model/` evaluate:
+
+- Group outcomes by `SEX`
+- Group error rates by `SEX`
+- Calibration by `SEX`
+- Proxy predictability of `SEX` from non-sensitive variables
+- Feature association with `SEX`
+- SHAP driver comparison by `SEX`
+- Threshold fairness frontier
+- Individual SEX sensitivity
+- Nearest-neighbour individual fairness
+
+Deep-dive findings:
+
+- Baseline threshold `0.50`: DP difference `0.0220`, equalized odds difference `0.0225`, disparate impact ratio `0.9754`.
+- Recall threshold `0.25`: DP difference `0.0691`, equalized odds difference `0.0723`, disparate impact ratio `0.9089`.
+- Outcome audit shows Male applicants (SEX=1) had higher high-risk flag rates than Female applicants (SEX=2): `0.1280` vs `0.1060` at threshold `0.50`, and `0.3109` vs `0.2419` at threshold `0.25`.
+- Error-rate audit shows Male applicants had higher FPR and Female applicants had higher FNR. Under the recall-focused threshold, Male FPR was `0.2094` vs Female FPR `0.1626`, while Female FNR was `0.4505` vs Male FNR `0.3782`.
+- Calibration check found largest bin-level calibration gap `0.0863`.
+- Proxy-risk analysis found the best proxy model could predict `SEX`/gender with ROC-AUC `0.6476`; this is not proof of legal discrimination, but it shows that direct removal of `SEX` is not a complete fairness strategy.
+- Individual SEX sensitivity found maximum probability change `0.00000000` and zero decision changes when flipping `SEX` only, confirming no direct use of `SEX` in the active XGBoost prediction path.
+
+Governance conclusion: the project found a diagnostic fairness-governance signal and threshold-governance tradeoff. It found no proof of legal discrimination and makes no causal bias claim. The model requires threshold governance, proxy-risk monitoring, calibration monitoring, and human oversight before any real operational use.
 
 ## Explainability Tools
 

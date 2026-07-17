@@ -1,0 +1,289 @@
+{
+  "what_was_analyzed": [
+    "group outcomes by SEX",
+    "group error rates by SEX",
+    "calibration by SEX",
+    "proxy predictability of SEX from non-sensitive features",
+    "feature association with SEX",
+    "SHAP driver comparison by SEX",
+    "threshold fairness frontier",
+    "individual SEX sensitivity",
+    "nearest-neighbour individual fairness"
+  ],
+  "protected_attribute": "SEX",
+  "protected_attribute_mapping": [
+    {
+      "sex_code": 1,
+      "sex_group": "Male",
+      "group": "Male (SEX=1)"
+    },
+    {
+      "sex_code": 2,
+      "sex_group": "Female",
+      "group": "Female (SEX=2)"
+    }
+  ],
+  "baseline_xgboost_fairness": {
+    "demographic_parity_difference": 0.022032268651218212,
+    "disparate_impact_ratio": 0.9753554494958341,
+    "equal_opportunity_difference": 0.006294570340171113,
+    "equalized_odds_difference": 0.022507919795332176,
+    "false_positive_rate_difference": 0.006294570340171175,
+    "false_negative_rate_difference": 0.022507919795332176
+  },
+  "recall_threshold_fairness": {
+    "demographic_parity_difference": 0.06907997098153773,
+    "disparate_impact_ratio": 0.9088833186222565,
+    "equal_opportunity_difference": 0.04677752212430675,
+    "equalized_odds_difference": 0.07229641738937687,
+    "false_positive_rate_difference": 0.046777522124306664,
+    "false_negative_rate_difference": 0.07229641738937687
+  },
+  "group_outcome_findings": {
+    "baseline_threshold_050": {
+      "male_high_risk_flag_rate": 0.12803062526584433,
+      "female_high_risk_flag_rate": 0.10599835661462613
+    },
+    "recall_threshold_025": {
+      "male_high_risk_flag_rate": 0.3109315185027648,
+      "female_high_risk_flag_rate": 0.24185154752122706
+    }
+  },
+  "group_error_findings": {
+    "baseline_threshold_050": {
+      "male_false_positive_rate": 0.05417607223476298,
+      "female_false_positive_rate": 0.0478815018945918,
+      "male_false_negative_rate": 0.6459412780656304,
+      "female_false_negative_rate": 0.6684491978609626
+    },
+    "recall_threshold_025": {
+      "male_false_positive_rate": 0.20936794582392776,
+      "female_false_positive_rate": 0.1625904236996211,
+      "male_false_negative_rate": 0.37823834196891193,
+      "female_false_negative_rate": 0.4505347593582888
+    }
+  },
+  "group_outcome_rows": 10,
+  "group_error_rows": 10,
+  "largest_absolute_calibration_gap": 0.0863024101550387,
+  "best_proxy_predictability": {
+    "model": "proxy_random_forest",
+    "status": "completed",
+    "positive_class_sex_code": 2,
+    "positive_class_sex_group": "Female",
+    "positive_class": "Female (SEX=2)",
+    "accuracy": 0.6089636787737421,
+    "roc_auc": 0.6475617583081775,
+    "pr_auc": 0.7306064536493715
+  },
+  "top_proxy_associated_features": [
+    {
+      "feature": "BillToLimitRatio_1",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": 0.46308026448272926,
+      "group_b_mean": 0.39797070205261414,
+      "group_a_median": 0.41313216783216783,
+      "group_b_median": 0.2539072413793103,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.1582928301283148,
+      "absolute_standardized_mean_difference": 0.1582928301283148,
+      "correlation_with_sex_binary": -0.07739950783228618,
+      "mutual_information_with_sex": 0.0014413568685744949
+    },
+    {
+      "feature": "BillToLimitRatio_2",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": 0.44945653385512907,
+      "group_b_mean": 0.38597086430447175,
+      "group_a_median": 0.387665,
+      "group_b_median": 0.23671923076923077,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.15695848969062778,
+      "absolute_standardized_mean_difference": 0.15695848969062778,
+      "correlation_with_sex_binary": -0.07675770568861859,
+      "mutual_information_with_sex": 0.007119602689666715
+    },
+    {
+      "feature": "PAY_2",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": -0.029189098250336474,
+      "group_b_mean": -0.2024072438162544,
+      "group_a_median": 0.0,
+      "group_b_median": 0.0,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.14465913580483566,
+      "absolute_standardized_mean_difference": 0.14465913580483566,
+      "correlation_with_sex_binary": -0.07077100316682187,
+      "mutual_information_with_sex": 0.003948685086996084
+    },
+    {
+      "feature": "AvgBillToLimitRatio",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": 0.4029499987793695,
+      "group_b_mean": 0.35342142154876816,
+      "group_a_median": 0.3600641762452107,
+      "group_b_median": 0.23259652777777778,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.1410340659408664,
+      "absolute_standardized_mean_difference": 0.1410340659408664,
+      "correlation_with_sex_binary": -0.06884502950487878,
+      "mutual_information_with_sex": 0.0028758922935054887
+    },
+    {
+      "feature": "BillToLimitRatio_3",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": 0.42469513611527737,
+      "group_b_mean": 0.37085876033477255,
+      "group_a_median": 0.3505626041666666,
+      "group_b_median": 0.22286846153846154,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.13591094509424606,
+      "absolute_standardized_mean_difference": 0.13591094509424606,
+      "correlation_with_sex_binary": -0.0664220571228798,
+      "mutual_information_with_sex": 0.0038348637040381828
+    },
+    {
+      "feature": "PAY_3",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": -0.06855652759084792,
+      "group_b_mean": -0.2302893109540636,
+      "group_a_median": 0.0,
+      "group_b_median": 0.0,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.13506514434965924,
+      "absolute_standardized_mean_difference": 0.13506514434965924,
+      "correlation_with_sex_binary": -0.06609605640042963,
+      "mutual_information_with_sex": 0.0038815753656717966
+    },
+    {
+      "feature": "BillToLimitRatio_4",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": 0.3868580217135952,
+      "group_b_mean": 0.34154807127481523,
+      "group_a_median": 0.31105,
+      "group_b_median": 0.19672436974789914,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.12274262523467562,
+      "absolute_standardized_mean_difference": 0.12274262523467562,
+      "correlation_with_sex_binary": -0.060111938556981076,
+      "mutual_information_with_sex": 0.0033450373365964126
+    },
+    {
+      "feature": "PAY_4",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": -0.13383243606998654,
+      "group_b_mean": -0.27766121908127206,
+      "group_a_median": 0.0,
+      "group_b_median": 0.0,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.12267205780903591,
+      "absolute_standardized_mean_difference": 0.12267205780903591,
+      "correlation_with_sex_binary": -0.060173238366203495,
+      "mutual_information_with_sex": 0.0038499820444120036
+    },
+    {
+      "feature": "MaxPaymentDelay",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": 0.5352456258411844,
+      "group_b_mean": 0.37538648409893993,
+      "group_a_median": 0.0,
+      "group_b_median": 0.0,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.11852887960903198,
+      "absolute_standardized_mean_difference": 0.11852887960903198,
+      "correlation_with_sex_binary": -0.058128479765487136,
+      "mutual_information_with_sex": 0.00026052585314917387
+    },
+    {
+      "feature": "RecentPaymentDelay",
+      "group_a_sex_code": 1,
+      "group_a_sex_group": "Male",
+      "group_a": "Male (SEX=1)",
+      "group_b_sex_code": 2,
+      "group_b_sex_group": "Female",
+      "group_b": "Female (SEX=2)",
+      "group_a_mean": 0.063257065948856,
+      "group_b_mean": -0.06918065371024736,
+      "group_a_median": 0.0,
+      "group_b_median": 0.0,
+      "group_a_missing_rate": 0.0,
+      "group_b_missing_rate": 0.0,
+      "standardized_mean_difference": -0.11786417178036686,
+      "absolute_standardized_mean_difference": 0.11786417178036686,
+      "correlation_with_sex_binary": -0.05764287886698632,
+      "mutual_information_with_sex": 0.007580626480706121
+    }
+  ],
+  "shap_driver_comparison": {
+    "status": "completed",
+    "reason": null
+  },
+  "threshold_frontier_finding": "Lowering the threshold from 0.50 to 0.25 improves recall but widens several group-level fairness diagnostics.",
+  "individual_sensitivity": {
+    "max_absolute_probability_change": 0.0,
+    "baseline_decision_changes": 0,
+    "recall_policy_decision_changes": 0
+  },
+  "nearest_neighbour": {
+    "status": "completed",
+    "average_probability_difference": 0.049561672261912694,
+    "median_probability_difference": 0.027756245,
+    "p90_probability_difference": 0.11557635000000013,
+    "large_difference_count_gt_0_10": 764
+  },
+  "final_interpretation": "The protected-attribute deep dive does not establish legal discrimination or causal bias. It shows a diagnostic fairness-governance signal. Male applicants (SEX=1) had higher high-risk flag rates than Female applicants (SEX=2), and this gap widened under the recall-focused threshold. The recall-focused policy improved default capture but also widened demographic parity and equalized-odds differences. Individual sensitivity testing showed that flipping SEX alone did not change XGBoost predictions, confirming no direct use of SEX in the active prediction path. However, proxy analysis showed that SEX/gender is moderately predictable from non-sensitive credit variables, so removing SEX alone is not a complete fairness strategy. Therefore, the model should remain a decision-support tool requiring threshold governance, human oversight, and ongoing fairness monitoring."
+}

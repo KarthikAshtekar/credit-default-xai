@@ -184,6 +184,66 @@ def build_fairness_chart(fairness_df: pd.DataFrame | None) -> go.Figure | None:
     return _style_figure(fig, "Fairness diagnostics by policy")
 
 
+def build_threshold_fairness_frontier_chart(frontier_df: pd.DataFrame | None) -> go.Figure | None:
+    if frontier_df is None or frontier_df.empty:
+        return None
+    required = {
+        "threshold",
+        "precision",
+        "recall",
+        "demographic_parity_difference",
+        "equalized_odds_difference",
+    }
+    if not required.issubset(frontier_df.columns):
+        return None
+
+    frame = frontier_df.sort_values("threshold").copy()
+    fig = go.Figure()
+    metric_specs = [
+        ("precision", "Precision", PALETTE[1], "y"),
+        ("recall", "Recall", PALETTE[0], "y"),
+        ("demographic_parity_difference", "DP difference", PALETTE[2], "y2"),
+        ("equalized_odds_difference", "Equalized odds difference", PALETTE[3], "y2"),
+    ]
+    for metric, label, color, axis in metric_specs:
+        fig.add_trace(
+            go.Scatter(
+                x=frame["threshold"],
+                y=pd.to_numeric(frame[metric], errors="coerce"),
+                mode="lines+markers",
+                name=label,
+                yaxis=axis,
+                line={"color": color, "width": 2.4},
+                hovertemplate="Threshold %{x:.2f}<br>%{y:.3f}<extra></extra>",
+            )
+        )
+    fig.add_vline(
+        x=0.25,
+        line_dash="dash",
+        line_color="#f59e0b",
+        annotation_text="Recall policy",
+        annotation_position="top left",
+    )
+    fig.add_vline(
+        x=0.50,
+        line_dash="dot",
+        line_color="#94a3b8",
+        annotation_text="Baseline",
+        annotation_position="top right",
+    )
+    fig.update_layout(
+        yaxis={"title": "Performance", "range": [0, 1]},
+        yaxis2={
+            "title": "Fairness difference",
+            "overlaying": "y",
+            "side": "right",
+            "range": [0, max(0.1, float(frame["equalized_odds_difference"].max()) * 1.35)],
+        },
+    )
+    fig.update_xaxes(title="Default-risk threshold", range=[0.08, 0.72])
+    return _style_figure(fig, "Threshold fairness frontier")
+
+
 def build_scenario_curve_chart(
     scenario_curve: pd.DataFrame | None,
     threshold: float,

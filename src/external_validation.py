@@ -456,7 +456,7 @@ def write_external_validation_outputs(
         "",
         "Fairness metrics are calculated on approval decisions derived from default",
         f"probabilities using threshold `{APPROVAL_THRESHOLD}`.",
-        "They are group-level diagnostics, not proof that the benchmark model is bias-free.",
+        "They are group-level diagnostics, not proof of complete benchmark fairness.",
     ]
     summary_md.write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
 

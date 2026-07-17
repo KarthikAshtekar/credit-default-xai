@@ -75,6 +75,42 @@ def get_application_artifact_paths() -> dict[str, Path]:
         / "fairness_reports"
         / "application_model"
         / "threshold_fairness_comparison.csv",
+        "fairness_deep_dive_summary": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "fairness_deep_dive_summary.json",
+        "fairness_group_outcome": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "group_outcome_analysis_by_sex.csv",
+        "fairness_group_error": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "group_error_analysis_by_sex.csv",
+        "fairness_group_calibration": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "group_calibration_by_sex.csv",
+        "fairness_proxy_predictability": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "proxy_sex_predictability.csv",
+        "fairness_feature_association": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "feature_association_with_sex.csv",
+        "fairness_threshold_frontier": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "threshold_fairness_frontier.csv",
+        "fairness_individual_sensitivity": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "individual_sex_sensitivity.csv",
+        "fairness_nearest_neighbour": REPORTS_DIR
+        / "fairness_reports"
+        / "application_model"
+        / "nearest_neighbour_individual_fairness.csv",
         "leakage": REPORTS_DIR / "leakage_audit" / "leakage_audit_summary.json",
         "leakage_report": REPORTS_DIR / "leakage_audit" / "leakage_audit_report.md",
         "counterfactual": REPORTS_DIR

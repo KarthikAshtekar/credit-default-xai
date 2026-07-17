@@ -16,6 +16,7 @@ from src.dataset_adapters import (
     PAY_STATUS_COLUMNS,
     add_uci_credit_features,
 )
+from src.protected_attributes import SEX_GROUP_LABELS
 
 USER_INPUT_FIELDS = [
     "LIMIT_BAL",
@@ -77,7 +78,7 @@ FEATURE_LABELS = {
     "PaymentToLimitRatio": "Payment-to-Limit Ratio",
 }
 
-SEX_OPTIONS = {1: "Male", 2: "Female"}
+SEX_OPTIONS = SEX_GROUP_LABELS.copy()
 EDUCATION_OPTIONS = {1: "Graduate school", 2: "University", 3: "High school", 4: "Other"}
 MARRIAGE_OPTIONS = {1: "Married", 2: "Single", 3: "Other"}
 

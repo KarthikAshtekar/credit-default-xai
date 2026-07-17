@@ -44,18 +44,42 @@ I used demographic parity difference, equal opportunity difference, equalized od
 
 Changing the threshold changes who receives a favorable predicted outcome. A lower threshold catches more likely defaults, but it can also shift false positives differently across groups. That is why the project reports threshold-performance and threshold-fairness tradeoffs together.
 
-## 12. What does the dashboard do?
+## 12. Did your model discriminate against male or female applicants?
+
+No. I did not conclude legal discrimination or causal bias. What I found was a diagnostic fairness-governance signal. Male applicants had higher high-risk flag rates, especially after lowering the threshold for recall. Female applicants had higher false negative rates. These are group-level error and outcome differences, not proof of legal discrimination.
+
+## 13. Which group was more affected by false positives?
+
+Male applicants had higher false positive rates. Under the recall-focused threshold, male FPR was `0.2094` versus female FPR `0.1626`. In credit-risk terms, this means more actual non-defaulters in the male group were flagged high-risk.
+
+## 14. Which group was more affected by false negatives?
+
+Female applicants had higher false negative rates. Under the recall-focused threshold, female FNR was `0.4505` versus male FNR `0.3782`. In credit-risk terms, this means more actual defaulters in the female group were missed.
+
+## 15. Why is removing SEX not enough?
+
+Because non-sensitive variables can still encode protected-group information. In the proxy audit, `SEX`/gender was moderately predictable from non-sensitive credit variables, with ROC-AUC `0.6476`. So excluding `SEX` prevents direct use, but it does not eliminate proxy risk.
+
+## 16. Did flipping SEX change predictions?
+
+No. The individual sensitivity test showed zero probability change and zero decision changes after flipping `SEX` alone. This verifies that `SEX` is not directly used in the active XGBoost prediction path. However, it does not rule out indirect proxy effects.
+
+## 17. What is the most important fairness lesson?
+
+Fairness is not only a model-training issue. It is also affected by the operating threshold and business policy. Lowering the threshold improved recall but widened some group-level fairness metrics, so threshold selection needs governance review.
+
+## 18. What does the dashboard do?
 
 The dashboard lets a user enter applicant details, generate an XGBoost-based default probability, view a risk band, see whether manual review is recommended, estimate model-supported advisable credit exposure, inspect risk drivers, simulate improvement scenarios, download an applicant report, and review governance artifacts.
 
-## 13. Is this production-ready?
+## 19. Is this production-ready?
 
 No. It is an educational and portfolio workflow. It lacks production monitoring, calibration governance, adverse-action compliance, reject inference, live data validation, access controls, and formal model risk management.
 
-## 14. How is the report generated: model-based or rule-based?
+## 20. How is the report generated: model-based or rule-based?
 
 The default probability is model-based. Risk bands and manual-review flags are threshold-based. Maximum advisable credit exposure is estimated through scenario simulation. Shortcomings and recommendations are generated using SHAP/rule-based mappings, making the report reproducible rather than black-box text generation.
 
-## 15. What would you improve next?
+## 21. What would you improve next?
 
 I would add probability calibration, threshold governance, a scorecard track with WOE/IV/binning/PDO/base odds, intersectional fairness diagnostics where sample sizes support them, drift monitoring, and validation on additional public credit datasets.

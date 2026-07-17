@@ -21,6 +21,7 @@ from dashboard.charts import (
     build_model_comparison_chart,
     build_pr_curve_chart,
     build_scenario_curve_chart,
+    build_threshold_fairness_frontier_chart,
     build_threshold_tradeoff_chart,
     load_report_csv_safely,
 )
@@ -40,7 +41,11 @@ from dashboard.prediction_helpers import (
     generate_plain_english_explanation,
     risk_band,
 )
-from dashboard.report_utils import DEFAULT_DECISION_THRESHOLD, build_applicant_risk_report
+from dashboard.report_utils import (
+    DEFAULT_DECISION_THRESHOLD,
+    add_fairness_group_labels,
+    build_applicant_risk_report,
+)
 from dashboard.scenarios import (
     average_bill_amount,
     average_payment_amount,
@@ -630,6 +635,246 @@ with tab_governance:
             st.dataframe(display, use_container_width=True, hide_index=True)
         else:
             st.info("Fairness diagnostics are not available.")
+
+    with st.expander("Fairness deep dive", expanded=False):
+        deep_summary = load_json(artifact_paths["fairness_deep_dive_summary"])
+        group_outcome_df = add_fairness_group_labels(
+            load_report_csv_safely(artifact_paths["fairness_group_outcome"])
+        )
+        group_error_df = add_fairness_group_labels(
+            load_report_csv_safely(artifact_paths["fairness_group_error"])
+        )
+        proxy_df = load_report_csv_safely(artifact_paths["fairness_proxy_predictability"])
+        frontier_df = load_report_csv_safely(artifact_paths["fairness_threshold_frontier"])
+        sensitivity_df = load_report_csv_safely(artifact_paths["fairness_individual_sensitivity"])
+
+        if (
+            deep_summary is None
+            and group_outcome_df is None
+            and group_error_df is None
+            and proxy_df is None
+            and frontier_df is None
+            and sensitivity_df is None
+        ):
+            st.info("Fairness deep-dive artifacts are not available.")
+        else:
+            st.write(
+                "Protected-attribute `SEX`/gender is held out of the active XGBoost feature set "
+                "and used here only for diagnostic fairness governance. Verified mapping: "
+                "Male (SEX=1), Female (SEX=2). These checks are not proof of legal "
+                "discrimination and make no causal bias claim."
+            )
+            if deep_summary is not None:
+                baseline = deep_summary.get("baseline_xgboost_fairness", {})
+                recall = deep_summary.get("recall_threshold_fairness", {})
+                outcome = deep_summary.get("group_outcome_findings", {})
+                errors = deep_summary.get("group_error_findings", {})
+                proxy = deep_summary.get("best_proxy_predictability", {})
+                sensitivity = deep_summary.get("individual_sensitivity", {})
+                deep_cols = st.columns(4)
+                with deep_cols[0]:
+                    render_metric_card(
+                        "Baseline DP difference",
+                        f"{float(baseline.get('demographic_parity_difference') or 0):.4f}",
+                        "XGBoost threshold 0.50",
+                    )
+                with deep_cols[1]:
+                    render_metric_card(
+                        "Recall DP difference",
+                        f"{float(recall.get('demographic_parity_difference') or 0):.4f}",
+                        "XGBoost threshold 0.25",
+                        "watch",
+                    )
+                with deep_cols[2]:
+                    render_metric_card(
+                        "Best proxy ROC-AUC",
+                        f"{float(proxy.get('roc_auc') or 0):.4f}",
+                        proxy.get("model", "Proxy model"),
+                        "watch",
+                    )
+                with deep_cols[3]:
+                    render_metric_card(
+                        "Max SEX-flip change",
+                        f"{float(sensitivity.get('max_absolute_probability_change') or 0):.6f}",
+                        "Direct-use sensitivity",
+                        "good",
+                    )
+
+                st.write(
+                    "Male applicants had higher high-risk flag rates in this held-out test audit. "
+                    "Female applicants had higher false negative rates in this held-out test audit. "
+                    "This is a diagnostic fairness-governance signal, not proof of legal "
+                    "discrimination."
+                )
+                st.write(
+                    "SEX is not directly used in the active XGBoost prediction path, but proxy "
+                    "signal remains possible."
+                )
+
+                summary_rows = pd.DataFrame(
+                    [
+                        {
+                            "policy": "XGBoost baseline 0.50",
+                            "male_high_risk_rate": outcome.get("baseline_threshold_050", {}).get(
+                                "male_high_risk_flag_rate"
+                            ),
+                            "female_high_risk_rate": outcome.get("baseline_threshold_050", {}).get(
+                                "female_high_risk_flag_rate"
+                            ),
+                            "male_fpr": errors.get("baseline_threshold_050", {}).get(
+                                "male_false_positive_rate"
+                            ),
+                            "female_fpr": errors.get("baseline_threshold_050", {}).get(
+                                "female_false_positive_rate"
+                            ),
+                            "male_fnr": errors.get("baseline_threshold_050", {}).get(
+                                "male_false_negative_rate"
+                            ),
+                            "female_fnr": errors.get("baseline_threshold_050", {}).get(
+                                "female_false_negative_rate"
+                            ),
+                        },
+                        {
+                            "policy": "XGBoost recall 0.25",
+                            "male_high_risk_rate": outcome.get("recall_threshold_025", {}).get(
+                                "male_high_risk_flag_rate"
+                            ),
+                            "female_high_risk_rate": outcome.get("recall_threshold_025", {}).get(
+                                "female_high_risk_flag_rate"
+                            ),
+                            "male_fpr": errors.get("recall_threshold_025", {}).get(
+                                "male_false_positive_rate"
+                            ),
+                            "female_fpr": errors.get("recall_threshold_025", {}).get(
+                                "female_false_positive_rate"
+                            ),
+                            "male_fnr": errors.get("recall_threshold_025", {}).get(
+                                "male_false_negative_rate"
+                            ),
+                            "female_fnr": errors.get("recall_threshold_025", {}).get(
+                                "female_false_negative_rate"
+                            ),
+                        },
+                    ]
+                )
+                if summary_rows.notna().any(axis=None):
+                    st.write("Outcome and error-rate summary by verified SEX/gender group")
+                    st.dataframe(summary_rows, use_container_width=True, hide_index=True)
+
+                fairness_rows = pd.DataFrame(
+                    [
+                        {
+                            "policy": "XGBoost baseline 0.50",
+                            "demographic_parity_difference": baseline.get(
+                                "demographic_parity_difference"
+                            ),
+                            "equal_opportunity_difference": baseline.get(
+                                "equal_opportunity_difference"
+                            ),
+                            "equalized_odds_difference": baseline.get("equalized_odds_difference"),
+                            "disparate_impact_ratio": baseline.get("disparate_impact_ratio"),
+                        },
+                        {
+                            "policy": "XGBoost recall 0.25",
+                            "demographic_parity_difference": recall.get(
+                                "demographic_parity_difference"
+                            ),
+                            "equal_opportunity_difference": recall.get(
+                                "equal_opportunity_difference"
+                            ),
+                            "equalized_odds_difference": recall.get("equalized_odds_difference"),
+                            "disparate_impact_ratio": recall.get("disparate_impact_ratio"),
+                        },
+                    ]
+                )
+                st.dataframe(fairness_rows, use_container_width=True, hide_index=True)
+
+            if group_outcome_df is not None and not group_outcome_df.empty:
+                primary_outcomes = group_outcome_df[
+                    group_outcome_df["policy"].isin(
+                        ["xgboost_baseline_threshold_050", "xgboost_recall_threshold_025"]
+                    )
+                ].copy()
+                outcome_columns = [
+                    "policy",
+                    "sex_group",
+                    "sex_code",
+                    "group",
+                    "n",
+                    "actual_default_rate",
+                    "predicted_high_risk_rate",
+                    "approval_support_rate",
+                ]
+                st.write("High-risk flag rates by group")
+                st.dataframe(
+                    primary_outcomes[[col for col in outcome_columns if col in primary_outcomes]],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+            frontier_fig = build_threshold_fairness_frontier_chart(frontier_df)
+            if frontier_fig is not None:
+                st.write(
+                    "Threshold fairness frontier: lowering the threshold improved recall, "
+                    "but demographic parity and equalized-odds differences widened. Threshold "
+                    "choice is therefore a governance decision, not only a model metric decision."
+                )
+                st.plotly_chart(frontier_fig, use_container_width=True, theme="streamlit")
+
+            if group_error_df is not None and not group_error_df.empty:
+                primary_errors = group_error_df[
+                    group_error_df["policy"].isin(
+                        ["xgboost_baseline_threshold_050", "xgboost_recall_threshold_025"]
+                    )
+                ].copy()
+                display_columns = [
+                    "policy",
+                    "sex_group",
+                    "sex_code",
+                    "group",
+                    "true_positives",
+                    "false_positives",
+                    "false_negatives",
+                    "recall",
+                    "false_positive_rate",
+                    "false_negative_rate",
+                ]
+                st.write("Group error-rate audit")
+                st.dataframe(
+                    primary_errors[[col for col in display_columns if col in primary_errors]],
+                    use_container_width=True,
+                    hide_index=True,
+                )
+
+            if proxy_df is not None and not proxy_df.empty:
+                st.write(
+                    "Proxy-risk analysis: SEX/gender is moderately predictable from "
+                    "non-sensitive variables, so removing SEX alone is not a complete "
+                    "fairness strategy."
+                )
+                st.dataframe(proxy_df, use_container_width=True, hide_index=True)
+
+            if sensitivity_df is not None and not sensitivity_df.empty:
+                sensitivity_summary = pd.DataFrame(
+                    [
+                        {
+                            "max_absolute_probability_change": sensitivity_df[
+                                "absolute_probability_change"
+                            ].max(),
+                            "baseline_decision_changes": int(
+                                sensitivity_df["baseline_decision_changed"].sum()
+                            ),
+                            "recall_policy_decision_changes": int(
+                                sensitivity_df["recall_policy_decision_changed"].sum()
+                            ),
+                        }
+                    ]
+                )
+                st.write(
+                    "Individual SEX sensitivity: flipping SEX alone produced no prediction or "
+                    "decision changes in the active XGBoost path."
+                )
+                st.dataframe(sensitivity_summary, use_container_width=True, hide_index=True)
 
     with st.expander("Leakage audit", expanded=False):
         leakage_summary = load_json(artifact_paths["leakage"])
