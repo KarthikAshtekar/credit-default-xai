@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         # This repository may not have GitHub Dependency Graph enabled.
         # Keep dependency review advisory so portfolio PRs are not blocked by
         # repository security-feature availability.
